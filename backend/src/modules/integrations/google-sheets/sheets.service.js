@@ -1,13 +1,15 @@
 const { google } = require('googleapis');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-const config = require('../../../config');
 const logger = require('../../../utils/logger');
+const { getSetting } = require('../../../utils/getSetting');
 
 const prisma = new PrismaClient();
 
-const getSheetClient = () => {
-  const credentials = JSON.parse(config.googleServiceAccountJson);
+const getSheetClient = async () => {
+  const saJson = await getSetting('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON غير مهيّأ. أضفه من الإعدادات.');
+  const credentials = JSON.parse(saJson);
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
@@ -20,9 +22,12 @@ const getSheetClient = () => {
  * Row 1 = headers, data starts from row 2
  */
 const syncStudents = async () => {
-  const sheets = getSheetClient();
+  const sheetId = await getSetting('GOOGLE_SHEET_ID');
+  if (!sheetId) throw new Error('GOOGLE_SHEET_ID غير مهيّأ. أضفه من الإعدادات.');
+
+  const sheets = await getSheetClient();
   const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.googleSheetId,
+    spreadsheetId: sheetId,
     range: 'Sheet1!A2:E',
   });
 

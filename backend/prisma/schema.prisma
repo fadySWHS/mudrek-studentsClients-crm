@@ -97,6 +97,20 @@ model SyncLog {
   @@map("sync_logs")
 }
 
+// Key-value store for admin-configurable system settings
+// Overrides env vars at runtime (DB takes precedence over .env)
+model SystemSetting {
+  key         String   @id          // e.g. "TWOCHAT_API_KEY"
+  value       String   @db.Text     // the actual value
+  label       String                // human-readable label (Arabic)
+  description String?               // optional hint
+  sensitive   Boolean  @default(false) // mask value in API responses
+  updatedAt   DateTime @updatedAt
+  updatedById String?               // which admin last changed it
+
+  @@map("system_settings")
+}
+
 enum Role {
   ADMIN
   STUDENT

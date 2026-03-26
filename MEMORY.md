@@ -104,13 +104,28 @@
 | `npm install` | ✅ Done | Session 3 — 405 packages |
 | `npm run build` | ✅ Done | Session 3 — all 13 routes compile clean ✅ |
 
-### Infrastructure
+### Infrastructure (Session 3 — Deployment files built)
+| Task | Status | Notes |
+|---|---|---|
+| `ecosystem.config.js` | ✅ Done | PM2: mudrek-backend (4000) + mudrek-frontend (3000) |
+| `server/nginx/mudrek.conf` | ✅ Done | HTTP→HTTPS redirect, SSL, /api/ proxy to 4000, / proxy to 3000 |
+| `server/deploy.sh` | ✅ Done | Full deploy: git pull → npm install → prisma migrate → build → pm2 reload → nginx reload |
+| `.gitignore` / `.gitattributes` | ✅ Done | Excludes .env, node_modules, .next; LF line endings |
+| `backend/.env` | ✅ Done | Created with placeholders — **fill in real values before running** |
+| `git init` + first commit | ✅ Done | 79 files, commit `03ebe5c` |
+| `backend npm install` | ✅ Done | 0 vulnerabilities |
+| Backend modules smoke test | ✅ Done | All load OK |
+
+### Still needed (requires real credentials + VPS access)
 | Task | Priority | Notes |
 |---|---|---|
-| `.env` file (actual values) | 🔴 High | DB, JWT, Google SA JSON, 2Chat keys |
-| `prisma migrate` / `db push` | 🔴 High | DB schema not deployed yet |
-| VPS deployment | 🟡 Medium | Nginx + PM2 + PostgreSQL |
-| GitHub repo + CI/CD | 🟡 Medium | Deployment flow |
+| Fill `backend/.env` with real values | 🔴 High | DB URL, JWT secret, Google SA JSON, 2Chat key, WhatsApp group ID |
+| Create GitHub remote + push | 🔴 High | `git remote add origin <url> && git push -u origin main` |
+| VPS: install Node 20, PM2, Postgres, Nginx | 🔴 High | See deploy.sh FIRST_DEPLOY section |
+| VPS: create DB + copy .env files | 🔴 High | |
+| Run `prisma migrate deploy` on VPS | 🔴 High | Creates all tables |
+| Run `server/deploy.sh` first time | 🔴 High | Builds everything and starts PM2 |
+| SSL with Certbot | 🟡 Medium | Free SSL for the domain |
 
 ---
 

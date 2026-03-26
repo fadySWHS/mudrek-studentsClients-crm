@@ -18,7 +18,7 @@ const studentNav = [
 const adminNav = [
   { href: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/leads', label: 'إدارة العملاء', icon: Briefcase },
-  { href: '/students', label: 'الطلاب', icon: Users },
+  { href: '/students', label: 'المستخدمون', icon: Users },
   { href: '/analytics', label: 'التحليلات', icon: BarChart2 },
   { href: '/activity', label: 'سجل النشاط', icon: Activity },
   { href: '/settings', label: 'الإعدادات', icon: Settings },

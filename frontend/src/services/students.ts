@@ -11,8 +11,8 @@ export interface Student {
 }
 
 export const studentsService = {
-  getAll: async (): Promise<Student[]> => {
-    const res = await api.get('/users');
+  getAll: async (params?: { role?: 'ADMIN' | 'STUDENT' }): Promise<Student[]> => {
+    const res = await api.get('/users', { params });
     return res.data.data;
   },
 
@@ -21,18 +21,22 @@ export const studentsService = {
     return res.data.data;
   },
 
-  update: async (id: string, data: Partial<Student>): Promise<Student> => {
+  update: async (id: string, data: Partial<Student> & { password?: string }): Promise<Student> => {
     const res = await api.put(`/users/${id}`, data);
     return res.data.data;
   },
 
   toggleActive: async (id: string): Promise<Student> => {
-    const res = await api.patch(`/users/${id}/toggle`);
+    const res = await api.patch(`/users/${id}/toggle-active`);
     return res.data.data;
   },
 
-  syncFromSheets: async (): Promise<{ created: number; updated: number }> => {
-    const res = await api.post('/integrations/sync');
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/users/${id}`);
+  },
+
+  syncFromSheets: async (): Promise<{ created: number; updated: number; disabled: number }> => {
+    const res = await api.post('/integrations/sync-students');
     return res.data.data;
   },
 };

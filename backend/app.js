@@ -19,6 +19,7 @@ const remindersRoutes = require('./src/modules/reminders/reminders.routes');
 const activityRoutes = require('./src/modules/activity-log/activity.routes');
 const reportsRoutes = require('./src/modules/reports/reports.routes');
 const integrationsRoutes = require('./src/modules/integrations/integrations.routes');
+const settingsRoutes = require('./src/modules/settings/settings.routes');
 
 // Jobs
 const { startSyncJob } = require('./src/jobs/sync-students.job');
@@ -49,6 +50,7 @@ app.use('/api/reminders', remindersRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: config.nodeEnv }));

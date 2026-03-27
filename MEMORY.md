@@ -1,7 +1,7 @@
 # Mudrek Lead Engine — Build Memory Log
 
 > This file tracks what has been built, what is in progress, and what is not yet done.
-> Updated by AI assistant. Last updated: 2026-03-27 (Session 3).
+> Updated by AI assistant. Last updated: 2026-03-27 (Session 4).
 
 ---
 
@@ -103,6 +103,25 @@
 | `next.config.mjs` | ✅ Done | Session 3 — fixed from .ts (Next.js 14 incompatible) |
 | `npm install` | ✅ Done | Session 3 — 405 packages |
 | `npm run build` | ✅ Done | Session 3 — all 13 routes compile clean ✅ |
+
+### Session 4 — Admin-configurable settings + full user management
+| File | Status | Notes |
+|---|---|---|
+| `prisma/schema.prisma` | ✅ Updated | Added `SystemSetting` model (key-value, sensitive flag) |
+| `src/utils/getSetting.js` | ✅ New | DB-first lookup → env fallback for all integration keys |
+| `src/modules/settings/settings.controller.js` | ✅ New | getAll (masked), updateSetting, testTwochat, testSheets |
+| `src/modules/settings/settings.routes.js` | ✅ New | GET /, PUT /:key, POST /test/twochat, POST /test/sheets |
+| `src/modules/integrations/twochat/twochat.service.js` | ✅ Updated | Reads API key + group ID from DB via getSetting |
+| `src/modules/integrations/google-sheets/sheets.service.js` | ✅ Updated | Reads SA JSON + Sheet ID from DB via getSetting |
+| `src/modules/users/users.controller.js` | ✅ Updated | Added deleteUser, last-admin guard, role-change guard, ?role filter |
+| `src/modules/users/users.routes.js` | ✅ Updated | Added DELETE /:id |
+| `app.js` | ✅ Updated | Mounts /api/settings |
+| `src/services/settings.ts` | ✅ New | getAll, update, testTwochat, testSheets |
+| `src/services/students.ts` | ✅ Updated | delete, ?role filter, update with password |
+| `src/app/(dashboard)/settings/page.tsx` | ✅ Rewritten | Editable settings cards per integration, save/test/sync buttons |
+| `src/app/(dashboard)/students/page.tsx` | ✅ Rewritten | Tabbed Students/Admins, create/edit/toggle/delete |
+| `src/components/students/UserFormModal.tsx` | ✅ New | Replaces StudentFormModal; has role selector (STUDENT/ADMIN) |
+| All builds passing | ✅ | 13 routes, no TypeScript errors |
 
 ### Infrastructure (Session 3 — Deployment files built)
 | Task | Status | Notes |

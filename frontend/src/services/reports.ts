@@ -28,7 +28,7 @@ export const reportsService = {
   },
 
   getStudentPerformance: async (): Promise<StudentPerformance[]> => {
-    const res = await api.get('/reports/performance');
+    const res = await api.get('/reports/students');
     return res.data.data;
   },
 

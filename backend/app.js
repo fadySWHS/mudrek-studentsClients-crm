@@ -76,3 +76,5 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
+// Trigger nodemon restart to load new routes

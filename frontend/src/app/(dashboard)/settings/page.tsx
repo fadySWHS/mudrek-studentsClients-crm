@@ -5,7 +5,7 @@ import { studentsService } from '@/services/students';
 import Header from '@/components/layout/Header';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import toast from 'react-hot-toast';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle, AlertTriangle, Wifi } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle, AlertTriangle, Wifi, Info } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -139,6 +139,7 @@ export default function SettingsPage() {
               onSave={() => handleSave(s.key)}
             />
           ))}
+          <GoogleSheetsHelp />
           {syncResult && (
             <div className="mt-3 bg-green-50 rounded-xl p-3 text-sm text-green-700 flex items-center gap-2">
               <CheckCircle className="h-4 w-4 flex-shrink-0" />
@@ -286,5 +287,43 @@ function SettingRow({
         </button>
       </div>
     </div>
+  );
+}
+
+function GoogleSheetsHelp() {
+  return (
+    <details className="mt-4 group bg-blue-50/50 border border-blue-100 rounded-xl overflow-hidden text-sm">
+      <summary className="flex items-center gap-2 p-3 font-semibold text-blue-800 cursor-pointer hover:bg-blue-50 transition-colors">
+        <Info className="h-4 w-4" />
+        كيفية إعداد Google Sheets (الحصول على بيانات الارتباط)
+      </summary>
+      <div className="p-4 pt-0 text-gray-700 leading-relaxed space-y-4 border-t border-blue-100/50 mt-2">
+        <div>
+          <h4 className="font-bold text-gray-900 mb-1">1. إنشاء مشروع وتفعيل الـ APIs</h4>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            <li>اذهب إلى <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a>.</li>
+            <li>قم بإنشاء مشروع جديد (New Project).</li>
+            <li>من القائمة الجانبية (APIs & Services {'>'} Library)، ابحث عن <strong>Google Sheets API</strong> و <strong>Google Drive API</strong> وقم بتفعيلهما.</li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-bold text-gray-900 mb-1">2. استخراج ملف مفتاح الـ JSON</h4>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            <li>اذهب إلى <strong>IAM & Admin</strong> ثم <strong>Service Accounts</strong> وانقر على إنشاء حساب جديد.</li>
+            <li>انقر على البريد الإلكتروني الخاص به، واذهب إلى تبويب <strong>Keys</strong>.</li>
+            <li>اختر <strong>Add Key</strong> ثم <strong>Create new key</strong> بصيغة <strong>JSON</strong> لتنزيله.</li>
+            <li>افتح الـ JSON، وانسخ <span className="underline">محتواه بالكامل</span> كـ نص واحد والصقه في إعداد <code>GOOGLE_SERVICE_ACCOUNT_JSON</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h4 className="font-bold text-gray-900 mb-1">3. مشاركة Sheet وتعيين الـ ID</h4>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            <li>انسخ إيميل الـ Service Account (ينتهي بـ <code>iam.gserviceaccount.com</code>).</li>
+            <li>افتح الـ Google Sheet واضغط <strong>Share</strong> (مشاركة) وأعطه صلاحية <strong>Editor</strong>.</li>
+            <li>انسخ الـ <strong>Sheet ID</strong> من رابط المتصفح (بين <code>/d/</code> و <code>/edit</code>) وضعه في إعداد <code>GOOGLE_SHEET_ID</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
   );
 }

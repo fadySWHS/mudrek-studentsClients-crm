@@ -126,9 +126,12 @@ const testSheets = async (req, res) => {
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
     const sheets = google.sheets({ version: 'v4', auth });
+    const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: 'Sheet1!A1:E1',
+      range: `${sheetTitle}!A1:Q1`,
     });
     const headers = response.data.values?.[0] || [];
     return success(res, { headers }, 'تم الاتصال بـ Google Sheets بنجاح');

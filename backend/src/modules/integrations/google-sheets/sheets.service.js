@@ -26,19 +26,29 @@ const syncStudents = async () => {
   if (!sheetId) throw new Error('GOOGLE_SHEET_ID غير مهيّأ. أضفه من الإعدادات.');
 
   const sheets = await getSheetClient();
+  const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
+
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: 'Sheet1!A2:E',
+    range: `${sheetTitle}!A2:Q`,
   });
 
   const rows = response.data.values || [];
   const results = { created: 0, updated: 0, disabled: 0, errors: [] };
 
   for (const row of rows) {
-    const [name, email, role, activeRaw, studentId] = row;
+    const firstName = row[0] || '';
+    const lastName = row[1] || '';
+    const name = `${firstName} ${lastName}`.trim();
+    const role = row[2];
+    const email = row[3];
+    const studentId = row[4];
+    const statusVal = row[16] || '';
+
     if (!email) continue;
 
-    const active = activeRaw?.toUpperCase() === 'TRUE';
+    const active = statusVal.trim().toLowerCase() !== 'stopped';
     const userRole = role?.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'STUDENT';
 
     try {

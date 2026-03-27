@@ -97,4 +97,40 @@ const deleteUser = async (req, res) => {
   return success(res, null, 'تم حذف الحساب');
 };
 
-module.exports = { getAll, getOne, create, update, toggleActive, deleteUser };
+const bulkToggleActive = async (req, res) => {
+  const { userIds, active } = req.body;
+  if (!Array.isArray(userIds) || typeof active !== 'boolean') {
+    return error(res, 'بيانات غير صالحة', 400);
+  }
+
+  const hasSelf = userIds.includes(req.user.id);
+  if (hasSelf && !active) {
+    return error(res, 'لا يمكنك تعطيل حسابك الخاص', 400);
+  }
+
+  await prisma.user.updateMany({
+    where: { id: { in: userIds } },
+    data: { active },
+  });
+
+  return success(res, null, `تم ${active ? 'تفعيل' : 'تعطيل'} الحسابات المحددة بنجاح`);
+};
+
+const bulkDelete = async (req, res) => {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds)) {
+    return error(res, 'بيانات غير صالحة', 400);
+  }
+
+  if (userIds.includes(req.user.id)) {
+    return error(res, 'لا يمكنك حذف حسابك الخاص ضمن العملية الجماعية', 400);
+  }
+
+  await prisma.user.deleteMany({
+    where: { id: { in: userIds } },
+  });
+
+  return success(res, null, 'تم حذف الحسابات المحددة بنجاح');
+};
+
+module.exports = { getAll, getOne, create, update, toggleActive, deleteUser, bulkToggleActive, bulkDelete };

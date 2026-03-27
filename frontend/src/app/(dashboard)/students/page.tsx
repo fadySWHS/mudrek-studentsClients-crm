@@ -22,6 +22,9 @@ export default function UsersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editUser, setEditUser] = useState<Student | null>(null);
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
   const fetchUsers = () => {
     setLoading(true);
     studentsService.getAll({ role: tab })
@@ -29,7 +32,33 @@ export default function UsersPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchUsers(); }, [tab]);
+  useEffect(() => { 
+    setSelectedIds(new Set());
+    setLastSelectedId(null);
+    fetchUsers(); 
+  }, [tab]);
+
+  const toggleSelection = (id: string, shiftKey: boolean) => {
+    const newSelection = new Set(selectedIds);
+    if (shiftKey && lastSelectedId) {
+      const start = users.findIndex(u => u.id === lastSelectedId);
+      const end = users.findIndex(u => u.id === id);
+      if (start !== -1 && end !== -1) {
+        const slice = users.slice(Math.min(start, end), Math.max(start, end) + 1);
+        slice.forEach(u => newSelection.add(u.id));
+      }
+    } else {
+      if (newSelection.has(id)) newSelection.delete(id);
+      else newSelection.add(id);
+    }
+    setSelectedIds(newSelection);
+    setLastSelectedId(id);
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === users.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(users.map(u => u.id)));
+  };
 
   const handleToggle = async (u: Student) => {
     try {
@@ -44,6 +73,27 @@ export default function UsersPage() {
     try {
       await studentsService.delete(u.id);
       toast.success('تم حذف الحساب');
+      fetchUsers();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const handleBulkToggle = async (active: boolean) => {
+    if (selectedIds.size === 0) return;
+    try {
+      await studentsService.bulkToggleActive(Array.from(selectedIds), active);
+      toast.success(`تم ${active ? 'تفعيل' : 'تعطيل'} الحسابات المحددة`);
+      setSelectedIds(new Set());
+      fetchUsers();
+    } catch (e: any) { toast.error(e.message); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`هل أنت متأكد من حذف ${selectedIds.size} حساب؟`)) return;
+    try {
+      await studentsService.bulkDelete(Array.from(selectedIds));
+      toast.success('تم حذف الحسابات المحددة');
+      setSelectedIds(new Set());
       fetchUsers();
     } catch (e: any) { toast.error(e.message); }
   };
@@ -103,6 +153,27 @@ export default function UsersPage() {
         ))}
       </div>
 
+      {selectedIds.size > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between">
+          <span className="text-sm font-medium text-primary-dark">تم تحديد {selectedIds.size} مستخدم</span>
+          <div className="flex gap-2">
+            <button onClick={() => handleBulkToggle(true)} className="btn-ghost text-success hover:bg-green-50 text-xs py-1 px-3">
+              <CheckCircle className="h-4 w-4 ml-1 inline-block" /> تفعيل
+            </button>
+            <button onClick={() => handleBulkToggle(false)} className="btn-ghost text-amber-600 hover:bg-amber-50 text-xs py-1 px-3">
+              <XCircle className="h-4 w-4 ml-1 inline-block" /> تعطيل
+            </button>
+            <button onClick={handleBulkDelete} className="btn-ghost text-error hover:bg-error-container text-xs py-1 px-3">
+              <Trash2 className="h-4 w-4 ml-1 inline-block" /> حذف
+            </button>
+            <div className="w-px h-6 bg-gray-300 mx-1"></div>
+            <button onClick={() => setSelectedIds(new Set())} className="btn-ghost text-gray-500 hover:bg-gray-100 text-xs py-1 px-3">
+              إلغاء التحديد
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="table-container">
         {loading ? (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
@@ -110,6 +181,14 @@ export default function UsersPage() {
           <table className="w-full">
             <thead>
               <tr>
+                <th className="table-header w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={users.length > 0 && selectedIds.size === users.length}
+                    onChange={toggleAll}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </th>
                 <th className="table-header">الاسم</th>
                 <th className="table-header">البريد الإلكتروني</th>
                 <th className="table-header">الدور</th>
@@ -120,7 +199,15 @@ export default function UsersPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className={cn('table-row', u.id === currentUser?.id && 'bg-primary-light/30')}>
+                <tr key={u.id} className={cn('table-row', u.id === currentUser?.id ? 'bg-primary-light/30' : (selectedIds.has(u.id) ? 'bg-gray-50' : ''))}>
+                  <td className="table-cell text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(u.id)}
+                      onChange={(e) => toggleSelection(u.id, (e.nativeEvent as any).shiftKey)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </td>
                   <td className="table-cell">
                     <div className="flex items-center gap-3">
                       <div className={cn(

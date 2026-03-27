@@ -26,6 +26,10 @@ export const studentsService = {
     return res.data.data;
   },
 
+  bulkToggleActive: async (userIds: string[], active: boolean): Promise<void> => {
+    await api.patch('/users/bulk/toggle-active', { userIds, active });
+  },
+
   toggleActive: async (id: string): Promise<Student> => {
     const res = await api.patch(`/users/${id}/toggle-active`);
     return res.data.data;
@@ -33,6 +37,10 @@ export const studentsService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/users/${id}`);
+  },
+
+  bulkDelete: async (userIds: string[]): Promise<void> => {
+    await api.post('/users/bulk/delete', { userIds });
   },
 
   syncFromSheets: async (): Promise<{ created: number; updated: number; disabled: number }> => {

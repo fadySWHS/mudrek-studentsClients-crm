@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  password        String?
+  role            Role      @default(STUDENT)
+  active          Boolean   @default(true)
+  sourceStudentId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  assignedLeads   Lead[]         @relation("AssignedLeads")
+  comments        LeadComment[]
+  history         LeadHistory[]
+  reminders       Reminder[]
+
+  @@map("users")
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  name         String
+  phone        String
+  service      String?
+  source       String?
+  budget       String?
+  status       LeadStatus @default(AVAILABLE)
+  notes        String?
+  lostReason   String?
+  assignedTo   User?      @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  assignedToId String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  comments     LeadComment[]
+  history      LeadHistory[]
+  reminders    Reminder[]
+
+  @@map("leads")
+}
+
+model LeadComment {
+  id          String   @id @default(cuid())
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId      String
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  commentText String   @db.Text
+  createdAt   DateTime @default(now())
+
+  @@map("lead_comments")
+}
+
+model LeadHistory {
+  id         String   @id @default(cuid())
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId     String
+  actor      User     @relation(fields: [actorId], references: [id])
+  actorId    String
+  actionType String
+  fromValue  String?  @db.Text
+  toValue    String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@map("lead_history")
+}
+
+model Reminder {
+  id        String         @id @default(cuid())
+  lead      Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId    String
+  createdBy User           @relation(fields: [createdById], references: [id])
+  createdById String
+  dueAt     DateTime
+  status    ReminderStatus @default(PENDING)
+  note      String?        @db.Text
+  createdAt DateTime       @default(now())
+
+  @@map("reminders")
+}
+
+model SyncLog {
+  id        String   @id @default(cuid())
+  syncType  String
+  result    String   @db.Text
+  syncedAt  DateTime @default(now())
+
+  @@map("sync_logs")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   @db.Text
+  label       String
+  description String?  @db.Text
+  sensitive   Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+
+  @@map("system_settings")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum LeadStatus {
+  AVAILABLE
+  TAKEN
+  CONTACTED
+  FOLLOW_UP
+  QUALIFIED
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum ReminderStatus {
+  PENDING
+  DONE
+  OVERDUE
+}

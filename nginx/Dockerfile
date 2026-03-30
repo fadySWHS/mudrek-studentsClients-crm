@@ -2,6 +2,6 @@ FROM nginx:alpine
 
 COPY default.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80 443
+EXPOSE 8080 8443
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -20,6 +20,7 @@ const activityRoutes = require('./src/modules/activity-log/activity.routes');
 const reportsRoutes = require('./src/modules/reports/reports.routes');
 const integrationsRoutes = require('./src/modules/integrations/integrations.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
+const webhooksRoutes = require('./src/modules/webhooks/webhooks.routes');
 
 // Jobs
 const { startSyncJob } = require('./src/jobs/sync-students.job');
@@ -30,7 +31,7 @@ const app = express();
 // Security & middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
+  origin: [process.env.FRONTEND_URL, 'http://localhost:3000', 'http://localhost:3001'].filter(Boolean),
   credentials: true,
 }));
 app.use(morgan('combined'));
@@ -51,6 +52,7 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: config.nodeEnv }));

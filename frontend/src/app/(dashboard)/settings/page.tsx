@@ -81,6 +81,10 @@ export default function SettingsPage() {
 
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
+  const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
+  const systemSettings = settings.filter((s) => s.key === 'DEFAULT_STUDENT_PASSWORD');
+
+  const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
 
   if (loading) return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
 
@@ -146,6 +150,74 @@ export default function SettingsPage() {
               آخر مزامنة: {syncResult.created} جديد · {syncResult.updated} محدّث · {syncResult.disabled} معطّل
             </div>
           )}
+        </SettingsCard>
+
+        {/* ─── Make.com Webhook ─── */}
+        <SettingsCard
+          icon="🔗"
+          title="Make.com / Zapier Webhook"
+          subtitle="استقبال العملاء تلقائيًا من المنصات الخارجية"
+        >
+          {webhookSettings.map((s) => (
+            <SettingRow
+              key={s.key}
+              setting={s}
+              value={editValues[s.key] ?? ''}
+              show={showValues[s.key] ?? false}
+              saving={saving[s.key] ?? false}
+              onChange={(v) => setEditValues((p) => ({ ...p, [s.key]: v }))}
+              onToggleShow={() => setShowValues((p) => ({ ...p, [s.key]: !p[s.key] }))}
+              onSave={() => handleSave(s.key)}
+            />
+          ))}
+          
+          <div className="bg-surface rounded-xl p-4 mt-4 border border-blue-100">
+            <h4 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <Info className="w-4 h-4 text-primary" /> كيفية ربط Webhook
+            </h4>
+            <div className="space-y-3 text-xs text-gray-600 leading-relaxed">
+              <p>في منصة Make.com أو Zapier، قم بإنشاء وحدة <strong className="text-gray-900">HTTP Make a request</strong> بالبيانات التالية:</p>
+              
+              <div className="bg-gray-50 p-2 rounded border font-mono">
+                <div className="text-gray-500 mb-1">URL:</div>
+                <div className="text-blue-600 break-all select-all font-semibold" dir="ltr">{webhookUrl}</div>
+                
+                <div className="text-gray-500 mt-2 mb-1">Method: <strong className="text-gray-900">POST</strong></div>
+                <div className="text-gray-500 mt-2 mb-1">Headers:</div>
+                <div className="text-gray-800" dir="ltr">Authorization: [الرمز السري الموضح أعلاه]</div>
+                
+                <div className="text-gray-500 mt-2 mb-1">Body type: <strong className="text-gray-900">Raw → JSON</strong></div>
+                <pre className="text-green-700 bg-green-50/50 p-2 mt-1 rounded" dir="ltr">{`{
+  "name": "اسم العميل",
+  "phone": "رقم الهاتف",
+  "service": "اسم الخدمة أو المنتج",
+  "source": "Facebook Ads / TikTok / الخ",
+  "budget": "مثال: 1000 ريال",
+  "notes": "ملاحظات إضافية"
+}`}</pre>
+              </div>
+            </div>
+          </div>
+        </SettingsCard>
+
+        {/* ─── System Settings ─── */}
+        <SettingsCard
+          icon="⚙️"
+          title="إعدادات النظام العامة"
+          subtitle="كلمة المرور الافتراضية للطلاب وإعدادات النظام الأخرى"
+        >
+          {systemSettings.map((s) => (
+            <SettingRow
+              key={s.key}
+              setting={s}
+              value={editValues[s.key] ?? ''}
+              show={showValues[s.key] ?? false}
+              saving={saving[s.key] ?? false}
+              onChange={(v) => setEditValues((p) => ({ ...p, [s.key]: v }))}
+              onToggleShow={() => setShowValues((p) => ({ ...p, [s.key]: !p[s.key] }))}
+              onSave={() => handleSave(s.key)}
+            />
+          ))}
         </SettingsCard>
 
         {/* ─── Deployment Info ─── */}

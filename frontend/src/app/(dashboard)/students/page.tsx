@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { studentsService, Student } from '@/services/students';
 import Header from '@/components/layout/Header';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import Pagination from '@/components/shared/Pagination';
 import toast from 'react-hot-toast';
 import { UserPlus, RefreshCw, CheckCircle, XCircle, Users, Trash2, Edit } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -25,18 +26,31 @@ export default function UsersPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
-  const fetchUsers = () => {
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  const fetchUsers = useCallback(() => {
     setLoading(true);
-    studentsService.getAll({ role: tab })
-      .then(setUsers)
+    studentsService.getAll({ role: tab, page, limit })
+      .then((res) => {
+        setUsers(res.users);
+        setTotal(res.total);
+      })
       .finally(() => setLoading(false));
-  };
+  }, [tab, page, limit]);
 
   useEffect(() => { 
+    fetchUsers(); 
+  }, [fetchUsers]);
+
+  const handleTabChange = (newTab: Tab) => {
+    if (newTab === tab) return;
+    setTab(newTab);
+    setPage(1);
     setSelectedIds(new Set());
     setLastSelectedId(null);
-    fetchUsers(); 
-  }, [tab]);
+  };
 
   const toggleSelection = (id: string, shiftKey: boolean) => {
     const newSelection = new Set(selectedIds);
@@ -139,7 +153,7 @@ export default function UsersPage() {
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => handleTabChange(key)}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all',
               tab === key
@@ -283,6 +297,14 @@ export default function UsersPage() {
           </table>
         )}
       </div>
+
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+      />
 
       {showForm && (
         <UserFormModal

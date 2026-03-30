@@ -9,6 +9,13 @@ const prisma = new PrismaClient();
 // Default setting definitions — seeded on first GET if not in DB
 const DEFAULT_SETTINGS = [
   {
+    key: 'DEFAULT_STUDENT_PASSWORD',
+    label: 'كلمة المرور الافتراضية للطلاب',
+    description: 'كلمة المرور التي سيتم إعطاؤها للطلاب الجدد عند التسجيل أو عند تفعيل حساباتهم',
+    sensitive: false,
+    value: 'Mudrek@2024',
+  },
+  {
     key: 'TWOCHAT_API_KEY',
     label: 'مفتاح API لـ 2Chat',
     description: 'مفتاح التفويض لإرسال الرسائل عبر 2Chat WhatsApp',
@@ -35,6 +42,13 @@ const DEFAULT_SETTINGS = [
     description: 'محتوى ملف JSON لحساب الخدمة (كامل النص على سطر واحد)',
     sensitive: true,
     value: '',
+  },
+  {
+    key: 'API_WEBHOOK_SECRET',
+    label: 'رمز توثيق Webhook (Make.com/Zapier)',
+    description: 'الرمز السري الذي يجب إرساله في ترويسة الطلب (Authorization) لمنع أي شخص غير مصرح له من إرسال عملاء إلى النظام. أنشئ جملة أو رقماً معقداً هنا.',
+    sensitive: true,
+    value: 'REPLACE_WITH_YOUR_SECRET_TOKEN',
   },
 ];
 

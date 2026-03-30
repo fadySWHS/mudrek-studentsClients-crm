@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import EmptyState from '@/components/shared/EmptyState';
+import Pagination from '@/components/shared/Pagination';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
@@ -18,13 +19,14 @@ export default function MyLeadsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
 
   useEffect(() => {
     setLoading(true);
-    leadsService.getAll({ assignedTo: user?.id, search: search || undefined, page, limit: 20 })
+    leadsService.getAll({ assignedTo: user?.id, search: search || undefined, page, limit })
       .then((res) => { setLeads(res.leads); setTotal(res.total); })
       .finally(() => setLoading(false));
-  }, [user?.id, search, page]);
+  }, [user?.id, search, page, limit]);
 
   return (
     <div>
@@ -84,13 +86,13 @@ export default function MyLeadsPage() {
         )}
       </div>
 
-      {total > 20 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary py-1.5 px-4 disabled:opacity-40">السابق</button>
-          <span className="text-sm text-gray-500">صفحة {page} من {Math.ceil(total / 20)}</span>
-          <button disabled={page * 20 >= total} onClick={() => setPage((p) => p + 1)} className="btn-secondary py-1.5 px-4 disabled:opacity-40">التالي</button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+      />
     </div>
   );
 }

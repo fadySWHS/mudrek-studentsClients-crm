@@ -25,6 +25,9 @@ const syncStudents = async () => {
   const sheetId = await getSetting('GOOGLE_SHEET_ID');
   if (!sheetId) throw new Error('GOOGLE_SHEET_ID غير مهيّأ. أضفه من الإعدادات.');
 
+  const defaultUserPass = await getSetting('DEFAULT_STUDENT_PASSWORD') || 'Mudrek@2024';
+  const hashedDefaultPass = await bcrypt.hash(defaultUserPass, 10);
+
   const sheets = await getSheetClient();
   const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
   const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
@@ -62,9 +65,8 @@ const syncStudents = async () => {
         results.updated++;
         if (!active) results.disabled++;
       } else {
-        const defaultPassword = await bcrypt.hash('Mudrek@2024', 10);
         await prisma.user.create({
-          data: { name, email, password: defaultPassword, role: userRole, active, sourceStudentId: studentId },
+          data: { name, email, password: hashedDefaultPass, role: userRole, active, sourceStudentId: studentId },
         });
         results.created++;
       }

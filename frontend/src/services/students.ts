@@ -10,8 +10,15 @@ export interface Student {
   createdAt: string;
 }
 
+export interface UserListResponse {
+  users: Student[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export const studentsService = {
-  getAll: async (params?: { role?: 'ADMIN' | 'STUDENT' }): Promise<Student[]> => {
+  getAll: async (params?: { role?: 'ADMIN' | 'STUDENT'; page?: number; limit?: number }): Promise<UserListResponse> => {
     const res = await api.get('/users', { params });
     return res.data.data;
   },

@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import EmptyState from '@/components/shared/EmptyState';
+import Pagination from '@/components/shared/Pagination';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { Plus, Search, Filter, RefreshCw, Trash2, Edit, UserPlus } from 'lucide-react';
@@ -26,6 +27,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -41,19 +43,22 @@ export default function LeadsPage() {
         search: search || undefined,
         status: statusFilter || undefined,
         page,
-        limit: 20,
+        limit,
       });
       setLeads(res.leads);
       setTotal(res.total);
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, limit]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
   useEffect(() => {
-    if (isAdmin) studentsService.getAll().then((s) => setStudents(s.filter((u) => u.role === 'STUDENT' && u.active)));
+    if (isAdmin) {
+      // Need a large limit if we're capturing all active students for dropdown
+      studentsService.getAll({ limit: 1000 }).then((res) => setStudents(res.users.filter((u) => u.role === 'STUDENT' && u.active)));
+    }
   }, [isAdmin]);
 
   const handleClaim = async (id: string) => {
@@ -184,14 +189,13 @@ export default function LeadsPage() {
         )}
       </div>
 
-      {/* Pagination */}
-      {total > 20 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="btn-secondary py-1.5 px-4 disabled:opacity-40">السابق</button>
-          <span className="text-sm text-gray-500">صفحة {page} من {Math.ceil(total / 20)}</span>
-          <button disabled={page * 20 >= total} onClick={() => setPage((p) => p + 1)} className="btn-secondary py-1.5 px-4 disabled:opacity-40">التالي</button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+      />
 
       {showForm && (
         <LeadFormModal

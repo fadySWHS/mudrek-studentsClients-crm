@@ -1,19 +1,26 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const { success, error } = require('../../utils/response');
+const { getSetting } = require('../../utils/getSetting');
 
 const prisma = new PrismaClient();
 
 const getAll = async (req, res) => {
-  const { role } = req.query;
+  const { role, page = 1, limit = 20 } = req.query;
   const where = role ? { role } : {};
 
-  const users = await prisma.user.findMany({
-    where,
-    select: { id: true, name: true, email: true, role: true, active: true, sourceStudentId: true, createdAt: true },
-    orderBy: { createdAt: 'desc' },
-  });
-  return success(res, users);
+  const [users, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: { id: true, name: true, email: true, role: true, active: true, sourceStudentId: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: parseInt(limit),
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return success(res, { users, total, page: parseInt(page), limit: parseInt(limit) });
 };
 
 const getOne = async (req, res) => {
@@ -72,9 +79,17 @@ const toggleActive = async (req, res) => {
     if (activeAdmins <= 1) return error(res, 'لا يمكن تعطيل آخر مدير نشط في النظام', 400);
   }
 
+  const isActivating = !user.active;
+  let data = { active: isActivating };
+
+  if (isActivating && user.role === 'STUDENT') {
+    const defaultUserPass = await getSetting('DEFAULT_STUDENT_PASSWORD') || 'Mudrek@2024';
+    data.password = await bcrypt.hash(defaultUserPass, 10);
+  }
+
   const updated = await prisma.user.update({
     where: { id: req.params.id },
-    data: { active: !user.active },
+    data,
     select: { id: true, name: true, role: true, active: true },
   });
   return success(res, updated, updated.active ? 'تم تفعيل الحساب' : 'تم تعطيل الحساب');
@@ -108,10 +123,27 @@ const bulkToggleActive = async (req, res) => {
     return error(res, 'لا يمكنك تعطيل حسابك الخاص', 400);
   }
 
-  await prisma.user.updateMany({
-    where: { id: { in: userIds } },
-    data: { active },
-  });
+  if (active) {
+    const defaultUserPass = await getSetting('DEFAULT_STUDENT_PASSWORD') || 'Mudrek@2024';
+    const hashedPass = await bcrypt.hash(defaultUserPass, 10);
+
+    // Activating: split logic by role to only reset STUDENT passwords
+    await prisma.user.updateMany({
+      where: { id: { in: userIds }, role: 'STUDENT' },
+      data: { active: true, password: hashedPass },
+    });
+    
+    await prisma.user.updateMany({
+      where: { id: { in: userIds }, role: 'ADMIN' },
+      data: { active: true },
+    });
+  } else {
+    // Deactivating: simple update for all selected IDs
+    await prisma.user.updateMany({
+      where: { id: { in: userIds } },
+      data: { active: false },
+    });
+  }
 
   return success(res, null, `تم ${active ? 'تفعيل' : 'تعطيل'} الحسابات المحددة بنجاح`);
 };

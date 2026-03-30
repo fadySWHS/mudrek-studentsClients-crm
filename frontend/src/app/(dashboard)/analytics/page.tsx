@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { reportsService, DashboardStats, StudentPerformance } from '@/services/reports';
 import Header from '@/components/layout/Header';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import Pagination from '@/components/shared/Pagination';
 import { TrendingUp, Award, Target } from 'lucide-react';
 
 export default function AnalyticsPage() {
@@ -10,6 +11,10 @@ export default function AnalyticsPage() {
   const [performance, setPerformance] = useState<StudentPerformance[]>([]);
   const [lostReasons, setLostReasons] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  
+  // Local pagination state for the leaderboard
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     Promise.all([
@@ -75,12 +80,13 @@ export default function AnalyticsPage() {
             <p className="text-sm text-gray-400 text-center py-8">لا توجد بيانات بعد</p>
           ) : (
             <div className="space-y-3">
-              {performance.map((s, i) => {
+              {performance.slice((page - 1) * limit, page * limit).map((s, i) => {
+                const globalIndex = (page - 1) * limit + i;
                 const rate = s.total > 0 ? Math.round((s.closedWon / s.total) * 100) : 0;
                 return (
                   <div key={s.id} className="flex items-center gap-3">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface text-gray-500'}`}>
-                      {i + 1}
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${globalIndex === 0 ? 'bg-amber-100 text-amber-700' : globalIndex === 1 ? 'bg-gray-100 text-gray-600' : globalIndex === 2 ? 'bg-orange-100 text-orange-600' : 'bg-surface text-gray-500'}`}>
+                      {globalIndex + 1}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between text-sm">
@@ -95,6 +101,18 @@ export default function AnalyticsPage() {
                   </div>
                 );
               })}
+              
+              {performance.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <Pagination
+                    page={page}
+                    limit={limit}
+                    total={performance.length}
+                    onPageChange={setPage}
+                    onLimitChange={(l) => { setLimit(l); setPage(1); }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

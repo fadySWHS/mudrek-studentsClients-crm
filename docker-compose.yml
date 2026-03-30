@@ -52,12 +52,22 @@ services:
       dockerfile: Dockerfile
     container_name: mudrek-nginx
     restart: always
-    ports:
-      - "8080:8080"
-      - "8443:8443"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.studentsclients.rule=Host(`studentsclients.mudrek.com`)"
+      - "traefik.http.routers.studentsclients.entrypoints=websecure"
+      - "traefik.http.routers.studentsclients.tls.certresolver=letsencrypt"
+      - "traefik.http.services.studentsclients.loadbalancer.server.port=8080"
+    networks:
+      - default
+      - traefik-proxy
     depends_on:
       - frontend
       - backend
+
+networks:
+  traefik-proxy:
+    external: true
 
 volumes:
   postgres_data:

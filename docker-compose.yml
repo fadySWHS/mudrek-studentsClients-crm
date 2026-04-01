@@ -29,9 +29,9 @@ services:
       PORT: 4000
       NODE_ENV: production
       FRONTEND_URL: https://studentsclients.mudrek.com
-    command: sh -c "npx prisma migrate deploy && npm start"
     expose:
       - "4000"
+    command: sh -c "npx prisma db push --accept-data-loss && npm start"
 
   frontend:
     build:
@@ -52,12 +52,23 @@ services:
       dockerfile: Dockerfile
     container_name: mudrek-nginx
     restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.studentsclients.rule=Host(`studentsclients.mudrek.com`)"
+      - "traefik.http.routers.studentsclients.entrypoints=websecure"
+      - "traefik.http.routers.studentsclients.tls.certresolver=letsencrypt"
+      - "traefik.http.services.studentsclients.loadbalancer.server.port=8080"
+    networks:
+      - default
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "80:8080"
     depends_on:
       - frontend
       - backend
+
+networks:
+  traefik-proxy:
+    external: true
 
 volumes:
   postgres_data:

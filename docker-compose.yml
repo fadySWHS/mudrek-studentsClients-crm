@@ -29,6 +29,8 @@ services:
       PORT: 4000
       NODE_ENV: production
       FRONTEND_URL: https://studentsclients.mudrek.com
+      JWT_SECRET: a82f0b3c3820fbeefa1bab6f60ad780dad762a2b1cf0c37cd5cb500625bffae3102660a64cb6c46d499479d2c0687793b821be39695b141012ac17b6f743e823
+      JWT_EXPIRES_IN: 7d
     expose:
       - "4000"
     command: sh -c "npx prisma db push --accept-data-loss && npm start"

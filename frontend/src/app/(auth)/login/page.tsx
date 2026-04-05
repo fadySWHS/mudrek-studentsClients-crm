@@ -38,10 +38,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary-dark via-primary to-primary-container flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur rounded-2xl mb-4">
-            <span className="text-white font-black text-3xl">م</span>
-          </div>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img src="/logo.png" alt="مدرك" className="w-20 auto mb-4 drop-shadow-md rounded-2xl" />
           <h1 className="text-white text-2xl font-bold">مدرك</h1>
           <p className="text-white/70 text-sm mt-1">نظام إدارة العملاء المحتملين</p>
         </div>
@@ -99,7 +97,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-white/50 text-xs mt-6">
-          © 2025 مدرك — جميع الحقوق محفوظة
+          © {new Date().getFullYear()} مدرك — جميع الحقوق محفوظة
         </p>
       </div>
     </div>

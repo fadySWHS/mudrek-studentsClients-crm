@@ -10,10 +10,10 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#007A82',
-          dark: '#00464b',
-          container: '#006066',
-          light: '#e0f4f5',
+          DEFAULT: '#9436FE',
+          dark: '#6C24C2',
+          container: '#781FD6',
+          light: '#F3E8FF',
         },
         surface: {
           DEFAULT: '#F8F9FA',
@@ -21,14 +21,19 @@ const config: Config = {
           lowest: '#ffffff',
         },
         secondary: {
-          DEFAULT: '#455A64',
-          light: '#eceff1',
+          DEFAULT: '#8D62C3',
+          light: '#F3EDF7',
+        },
+        neutral: {
+          DEFAULT: '#7C7482',
+          light: '#EBE9EC',
+          dark: '#48444B',
         },
         error: {
           DEFAULT: '#ba1a1a',
           container: '#ffdad6',
         },
-        tertiary: '#62330f',
+        tertiary: '#974700',
         success: '#2e7d32',
         warning: '#e65100',
       },
@@ -46,7 +51,7 @@ const config: Config = {
       boxShadow: {
         card: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
         modal: '0 20px 60px rgba(0,0,0,0.15)',
-        elevated: '0 4px 16px rgba(0,122,130,0.12)',
+        elevated: '0 4px 16px rgba(148, 54, 254, 0.12)',
       },
     },
   },

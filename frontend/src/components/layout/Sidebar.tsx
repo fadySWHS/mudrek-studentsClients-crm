@@ -34,9 +34,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">م</span>
-          </div>
+          <img src="/logo.png" alt="مدرك" className="w-10 h-10 object-contain drop-shadow-sm rounded-full" />
           <div>
             <p className="font-bold text-gray-900 text-sm leading-tight">مدرك</p>
             <p className="text-xs text-gray-400">نظام إدارة العملاء</p>

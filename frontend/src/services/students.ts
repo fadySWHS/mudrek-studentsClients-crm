@@ -18,7 +18,7 @@ export interface UserListResponse {
 }
 
 export const studentsService = {
-  getAll: async (params?: { role?: 'ADMIN' | 'STUDENT'; page?: number; limit?: number }): Promise<UserListResponse> => {
+  getAll: async (params?: { role?: 'ADMIN' | 'STUDENT'; page?: number; limit?: number; search?: string }): Promise<UserListResponse> => {
     const res = await api.get('/users', { params });
     return res.data.data;
   },

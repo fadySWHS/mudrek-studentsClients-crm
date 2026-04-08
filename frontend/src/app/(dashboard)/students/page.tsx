@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import Pagination from '@/components/shared/Pagination';
 import toast from 'react-hot-toast';
-import { UserPlus, RefreshCw, CheckCircle, XCircle, Users, Trash2, Edit } from 'lucide-react';
+import { UserPlus, RefreshCw, CheckCircle, XCircle, Users, Trash2, Edit, Search, X } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
@@ -29,25 +29,38 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Debounce: wait 400ms after the user stops typing before hitting the API
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const fetchUsers = useCallback(() => {
     setLoading(true);
-    studentsService.getAll({ role: tab, page, limit })
+    studentsService.getAll({ role: tab, page, limit, search: search || undefined })
       .then((res) => {
         setUsers(res.users);
         setTotal(res.total);
       })
       .finally(() => setLoading(false));
-  }, [tab, page, limit]);
+  }, [tab, page, limit, search]);
 
   useEffect(() => { 
     fetchUsers(); 
   }, [fetchUsers]);
 
+  // Reset to page 1 whenever search query changes
+  useEffect(() => { setPage(1); }, [search]);
+
   const handleTabChange = (newTab: Tab) => {
     if (newTab === tab) return;
     setTab(newTab);
     setPage(1);
+    setSearchInput('');
+    setSearch('');
     setSelectedIds(new Set());
     setLastSelectedId(null);
   };
@@ -165,6 +178,26 @@ export default function UsersPage() {
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="ابحث بالاسم الأول أو الأخير أو البريد الإلكتروني..."
+          className="input-field pr-9 pl-9 w-full"
+        />
+        {searchInput && (
+          <button
+            onClick={() => { setSearchInput(''); setSearch(''); }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {selectedIds.size > 0 && (
@@ -287,9 +320,9 @@ export default function UsersPage() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-cell text-center text-gray-400 py-12">
+                  <td colSpan={7} className="table-cell text-center text-gray-400 py-12">
                     <Users className="h-10 w-10 mx-auto mb-2 text-gray-200" />
-                    <p>لا يوجد {tab === 'STUDENT' ? 'طلاب' : 'مديرون'} بعد</p>
+                    <p>{search ? `لا توجد نتائج للبحث عن "${search}"` : `لا يوجد ${tab === 'STUDENT' ? 'طلاب' : 'مديرون'} بعد`}</p>
                   </td>
                 </tr>
               )}

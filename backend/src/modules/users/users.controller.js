@@ -6,8 +6,15 @@ const { getSetting } = require('../../utils/getSetting');
 const prisma = new PrismaClient();
 
 const getAll = async (req, res) => {
-  const { role, page = 1, limit = 20 } = req.query;
-  const where = role ? { role } : {};
+  const { role, page = 1, limit = 20, search } = req.query;
+  const where = {};
+  if (role) where.role = role;
+  if (search?.trim()) {
+    where.OR = [
+      { name: { contains: search.trim(), mode: 'insensitive' } },
+      { email: { contains: search.trim(), mode: 'insensitive' } },
+    ];
+  }
 
   const [users, total] = await Promise.all([
     prisma.user.findMany({

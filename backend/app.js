@@ -28,6 +28,9 @@ const { startReminderJob } = require('./src/jobs/due-reminders.job');
 
 const app = express();
 
+// Trust Nginx/Traefik proxy — required for rate limiting behind a reverse proxy
+app.set('trust proxy', 1);
+
 // Security & middleware
 app.use(helmet());
 app.use(cors({

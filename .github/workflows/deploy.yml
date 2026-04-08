@@ -24,6 +24,11 @@ jobs:
             echo "==> Navigating to project directory"
             cd ${{ secrets.VPS_PROJECT_PATH }}
 
+            echo "==> Writing .env file"
+            cat > .env << 'ENVEOF'
+            ${{ secrets.VPS_ENV_FILE }}
+            ENVEOF
+
             echo "==> Pulling latest code from GitHub"
             git pull origin main
 

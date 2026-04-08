@@ -4,19 +4,19 @@ services:
     container_name: mudrek-db
     restart: always
     environment:
-      POSTGRES_DB: mudrek_crm
-      POSTGRES_USER: mudrek_user
-      POSTGRES_PASSWORD: mudrek_password
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mudrek_user -d mudrek_crm"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: mudrek-api
@@ -25,12 +25,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://mudrek_user:mudrek_password@db:5432/mudrek_crm?schema=public
+      DATABASE_URL: ${DATABASE_URL}
       PORT: 4000
       NODE_ENV: production
-      FRONTEND_URL: https://studentsclients.mudrek.com
-      JWT_SECRET: a82f0b3c3820fbeefa1bab6f60ad780dad762a2b1cf0c37cd5cb500625bffae3102660a64cb6c46d499479d2c0687793b821be39695b141012ac17b6f743e823
-      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: ${FRONTEND_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
     expose:
       - "4000"
     command: sh -c "npx prisma db push --accept-data-loss && npm start"
@@ -40,7 +40,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://studentsclients.mudrek.com/api
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     container_name: mudrek-ui
     restart: always
     depends_on:

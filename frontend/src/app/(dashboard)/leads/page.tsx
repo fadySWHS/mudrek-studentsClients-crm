@@ -123,71 +123,101 @@ export default function LeadsPage() {
         </button>
       </div>
 
-      {/* Table */}
-      <div className="table-container">
-        {loading ? (
-          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-        ) : leads.length === 0 ? (
-          <EmptyState
-            icon="📋"
-            title="لا توجد عملاء"
-            description="لا توجد نتائج مطابقة لبحثك"
-          />
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-header">الاسم</th>
-                <th className="table-header">الهاتف</th>
-                <th className="table-header">الخدمة</th>
-                <th className="table-header">المصدر</th>
-                <th className="table-header">الحالة</th>
-                {isAdmin && <th className="table-header">المسؤول</th>}
-                <th className="table-header">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} className="table-row">
-                  <td className="table-cell">
-                    <Link href={`/leads/${lead.id}`} className="font-medium text-primary hover:underline">
+      {loading ? (
+        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+      ) : leads.length === 0 ? (
+        <EmptyState icon="📋" title="لا توجد عملاء" description="لا توجد نتائج مطابقة لبحثك" />
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {leads.map((lead) => (
+              <div key={lead.id} className="card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link href={`/leads/${lead.id}`} className="font-semibold text-gray-900 hover:text-primary">
                       {lead.name}
                     </Link>
-                  </td>
-                  <td className="table-cell" dir="ltr">{lead.phone}</td>
-                  <td className="table-cell">{lead.service || '—'}</td>
-                  <td className="table-cell">{lead.source || '—'}</td>
-                  <td className="table-cell"><LeadStatusBadge status={lead.status} /></td>
-                  {isAdmin && (
-                    <td className="table-cell">{lead.assignedTo?.name || <span className="text-gray-400">غير محدد</span>}</td>
+                    <p className="text-xs text-gray-400 mt-0.5" dir="ltr">{lead.phone}</p>
+                    {lead.service && <p className="text-xs text-gray-500 mt-1">{lead.service}</p>}
+                    {isAdmin && lead.assignedTo && (
+                      <p className="text-xs text-gray-400 mt-1">المسؤول: {lead.assignedTo.name}</p>
+                    )}
+                  </div>
+                  <LeadStatusBadge status={lead.status} />
+                </div>
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                  <Link href={`/leads/${lead.id}`} className="btn-ghost py-1.5 px-3 text-xs flex-1 text-center">عرض</Link>
+                  {!isAdmin && lead.status === 'AVAILABLE' && (
+                    <button onClick={() => handleClaim(lead.id)} className="btn-primary py-1.5 px-3 text-xs flex-1">احجز</button>
                   )}
-                  <td className="table-cell">
-                    <div className="flex items-center gap-1">
-                      <Link href={`/leads/${lead.id}`} className="btn-ghost py-1 px-2 text-xs">عرض</Link>
-                      {!isAdmin && lead.status === 'AVAILABLE' && (
-                        <button onClick={() => handleClaim(lead.id)} className="btn-primary py-1 px-3 text-xs">احجز</button>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <button onClick={() => { setEditLead(lead); setShowForm(true); }} className="btn-ghost py-1 px-2 text-xs">
-                            <Edit className="h-3 w-3" />
-                          </button>
-                          <button onClick={() => setAssignLead(lead)} className="btn-ghost py-1 px-2 text-xs">
-                            <UserPlus className="h-3 w-3" />
-                          </button>
-                          <button onClick={() => handleDelete(lead.id)} className="text-error hover:bg-error-container py-1 px-2 rounded text-xs">
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <>
+                      <button onClick={() => { setEditLead(lead); setShowForm(true); }} className="btn-ghost py-1.5 px-3 text-xs">
+                        <Edit className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setAssignLead(lead)} className="btn-ghost py-1.5 px-3 text-xs">
+                        <UserPlus className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete(lead.id)} className="text-error hover:bg-error-container py-1.5 px-3 rounded-lg text-xs">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block table-container">
+            <table className="w-full">
+              <thead>
+                <tr>
+                  <th className="table-header">الاسم</th>
+                  <th className="table-header">الهاتف</th>
+                  <th className="table-header">الخدمة</th>
+                  <th className="table-header">المصدر</th>
+                  <th className="table-header">الحالة</th>
+                  {isAdmin && <th className="table-header">المسؤول</th>}
+                  <th className="table-header">الإجراءات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {leads.map((lead) => (
+                  <tr key={lead.id} className="table-row">
+                    <td className="table-cell">
+                      <Link href={`/leads/${lead.id}`} className="font-medium text-primary hover:underline">{lead.name}</Link>
+                    </td>
+                    <td className="table-cell" dir="ltr">{lead.phone}</td>
+                    <td className="table-cell">{lead.service || '—'}</td>
+                    <td className="table-cell">{lead.source || '—'}</td>
+                    <td className="table-cell"><LeadStatusBadge status={lead.status} /></td>
+                    {isAdmin && (
+                      <td className="table-cell">{lead.assignedTo?.name || <span className="text-gray-400">غير محدد</span>}</td>
+                    )}
+                    <td className="table-cell">
+                      <div className="flex items-center gap-1">
+                        <Link href={`/leads/${lead.id}`} className="btn-ghost py-1 px-2 text-xs">عرض</Link>
+                        {!isAdmin && lead.status === 'AVAILABLE' && (
+                          <button onClick={() => handleClaim(lead.id)} className="btn-primary py-1 px-3 text-xs">احجز</button>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <button onClick={() => { setEditLead(lead); setShowForm(true); }} className="btn-ghost py-1 px-2 text-xs"><Edit className="h-3 w-3" /></button>
+                            <button onClick={() => setAssignLead(lead)} className="btn-ghost py-1 px-2 text-xs"><UserPlus className="h-3 w-3" /></button>
+                            <button onClick={() => handleDelete(lead.id)} className="text-error hover:bg-error-container py-1 px-2 rounded text-xs"><Trash2 className="h-3 w-3" /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <Pagination
         page={page}

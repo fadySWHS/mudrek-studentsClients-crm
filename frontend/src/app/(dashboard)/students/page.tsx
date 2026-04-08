@@ -221,115 +221,132 @@ export default function UsersPage() {
         </div>
       )}
 
-      <div className="table-container">
-        {loading ? (
-          <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
-        ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-header w-12 text-center">
+      {loading ? (
+        <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
+      ) : users.length === 0 ? (
+        <div className="card text-center py-12 text-gray-400">
+          <Users className="h-10 w-10 mx-auto mb-2 text-gray-200" />
+          <p>{search ? `لا توجد نتائج للبحث عن "${search}"` : `لا يوجد ${tab === 'STUDENT' ? 'طلاب' : 'مديرون'} بعد`}</p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden space-y-3">
+            {users.map((u) => (
+              <div key={u.id} className={cn('card p-4', u.id === currentUser?.id && 'border-primary/20 bg-primary-light/10')}>
+                <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={users.length > 0 && selectedIds.size === users.length}
-                    onChange={toggleAll}
-                    style={{ cursor: 'pointer' }}
+                    checked={selectedIds.has(u.id)}
+                    onChange={(e) => toggleSelection(u.id, (e.nativeEvent as any).shiftKey)}
+                    className="flex-shrink-0"
                   />
-                </th>
-                <th className="table-header">الاسم</th>
-                <th className="table-header">البريد الإلكتروني</th>
-                <th className="table-header">الدور</th>
-                <th className="table-header">الحالة</th>
-                <th className="table-header">تاريخ الإنشاء</th>
-                <th className="table-header">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id} className={cn('table-row', u.id === currentUser?.id ? 'bg-primary-light/30' : (selectedIds.has(u.id) ? 'bg-gray-50' : ''))}>
-                  <td className="table-cell text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(u.id)}
-                      onChange={(e) => toggleSelection(u.id, (e.nativeEvent as any).shiftKey)}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  </td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold',
-                        u.role === 'ADMIN' ? 'bg-primary text-white' : 'bg-primary-light text-primary'
-                      )}>
-                        {u.name[0]}
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-900">{u.name}</span>
-                        {u.id === currentUser?.id && (
-                          <span className="mr-2 text-xs text-gray-400">(أنت)</span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="table-cell text-gray-500 text-xs" dir="ltr">{u.email}</td>
-                  <td className="table-cell">
+                  <div className={cn('w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold',
+                    u.role === 'ADMIN' ? 'bg-primary text-white' : 'bg-primary-light text-primary'
+                  )}>
+                    {u.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">
+                      {u.name}
+                      {u.id === currentUser?.id && <span className="mr-1 text-xs text-gray-400">(أنت)</span>}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate" dir="ltr">{u.email}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
                     <span className={cn('badge', u.role === 'ADMIN' ? 'bg-primary-light text-primary-dark' : 'bg-blue-50 text-blue-700')}>
                       {u.role === 'ADMIN' ? 'مدير' : 'طالب'}
                     </span>
-                  </td>
-                  <td className="table-cell">
                     <span className={cn('badge', u.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
                       {u.active ? 'نشط' : 'معطّل'}
                     </span>
-                  </td>
-                  <td className="table-cell text-gray-400 text-xs">
-                    {format(new Date(u.createdAt), 'dd MMM yyyy', { locale: ar })}
-                  </td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => { setEditUser(u); setShowForm(true); }}
-                        className="btn-ghost py-1 px-2 text-xs"
-                        title="تعديل"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </button>
-                      {u.id !== currentUser?.id && (
-                        <>
-                          <button
-                            onClick={() => handleToggle(u)}
-                            className={cn('flex items-center gap-1 text-xs font-medium py-1 px-2 rounded-lg transition-colors',
-                              u.active ? 'text-error hover:bg-error-container' : 'text-success hover:bg-green-50'
-                            )}
-                            title={u.active ? 'تعطيل' : 'تفعيل'}
-                          >
-                            {u.active ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(u)}
-                            className="text-error hover:bg-error-container py-1 px-2 rounded-lg transition-colors"
-                            title="حذف"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {users.length === 0 && (
+                  </div>
+                </div>
+                {u.id !== currentUser?.id && (
+                  <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <button onClick={() => { setEditUser(u); setShowForm(true); }} className="btn-ghost py-1.5 px-3 text-xs flex-1 flex items-center justify-center gap-1">
+                      <Edit className="h-3.5 w-3.5" /> تعديل
+                    </button>
+                    <button onClick={() => handleToggle(u)} className={cn('py-1.5 px-3 text-xs flex-1 rounded-lg flex items-center justify-center gap-1 font-medium transition-colors',
+                      u.active ? 'text-error hover:bg-error-container' : 'text-success hover:bg-green-50'
+                    )}>
+                      {u.active ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                      {u.active ? 'تعطيل' : 'تفعيل'}
+                    </button>
+                    <button onClick={() => handleDelete(u)} className="text-error hover:bg-error-container py-1.5 px-3 rounded-lg text-xs">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block table-container">
+            <table className="w-full">
+              <thead>
                 <tr>
-                  <td colSpan={7} className="table-cell text-center text-gray-400 py-12">
-                    <Users className="h-10 w-10 mx-auto mb-2 text-gray-200" />
-                    <p>{search ? `لا توجد نتائج للبحث عن "${search}"` : `لا يوجد ${tab === 'STUDENT' ? 'طلاب' : 'مديرون'} بعد`}</p>
-                  </td>
+                  <th className="table-header w-12 text-center">
+                    <input type="checkbox" checked={users.length > 0 && selectedIds.size === users.length} onChange={toggleAll} style={{ cursor: 'pointer' }} />
+                  </th>
+                  <th className="table-header">الاسم</th>
+                  <th className="table-header">البريد الإلكتروني</th>
+                  <th className="table-header">الدور</th>
+                  <th className="table-header">الحالة</th>
+                  <th className="table-header">تاريخ الإنشاء</th>
+                  <th className="table-header">الإجراءات</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id} className={cn('table-row', u.id === currentUser?.id ? 'bg-primary-light/30' : (selectedIds.has(u.id) ? 'bg-gray-50' : ''))}>
+                    <td className="table-cell text-center">
+                      <input type="checkbox" checked={selectedIds.has(u.id)} onChange={(e) => toggleSelection(u.id, (e.nativeEvent as any).shiftKey)} style={{ cursor: 'pointer' }} />
+                    </td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-3">
+                        <div className={cn('w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold', u.role === 'ADMIN' ? 'bg-primary text-white' : 'bg-primary-light text-primary')}>
+                          {u.name[0]}
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900">{u.name}</span>
+                          {u.id === currentUser?.id && <span className="mr-2 text-xs text-gray-400">(أنت)</span>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="table-cell text-gray-500 text-xs" dir="ltr">{u.email}</td>
+                    <td className="table-cell">
+                      <span className={cn('badge', u.role === 'ADMIN' ? 'bg-primary-light text-primary-dark' : 'bg-blue-50 text-blue-700')}>
+                        {u.role === 'ADMIN' ? 'مدير' : 'طالب'}
+                      </span>
+                    </td>
+                    <td className="table-cell">
+                      <span className={cn('badge', u.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
+                        {u.active ? 'نشط' : 'معطّل'}
+                      </span>
+                    </td>
+                    <td className="table-cell text-gray-400 text-xs">{format(new Date(u.createdAt), 'dd MMM yyyy', { locale: ar })}</td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditUser(u); setShowForm(true); }} className="btn-ghost py-1 px-2 text-xs" title="تعديل"><Edit className="h-3.5 w-3.5" /></button>
+                        {u.id !== currentUser?.id && (
+                          <>
+                            <button onClick={() => handleToggle(u)} className={cn('flex items-center gap-1 text-xs font-medium py-1 px-2 rounded-lg transition-colors', u.active ? 'text-error hover:bg-error-container' : 'text-success hover:bg-green-50')} title={u.active ? 'تعطيل' : 'تفعيل'}>
+                              {u.active ? <XCircle className="h-3.5 w-3.5" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                            </button>
+                            <button onClick={() => handleDelete(u)} className="text-error hover:bg-error-container py-1 px-2 rounded-lg transition-colors" title="حذف"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <Pagination
         page={page}

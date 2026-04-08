@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [testing, setTesting] = useState<'twochat' | 'sheets' | null>(null);
+  const [testing, setTesting] = useState<'twochat' | 'sheets' | 'webhook' | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; disabled: number } | null>(null);
 
@@ -65,6 +65,15 @@ export default function SettingsPage() {
     try {
       const result = await settingsService.testSheets();
       toast.success(`الاتصال ناجح! أعمدة الجدول: ${result.headers.join(' · ')}`);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setTesting(null); }
+  };
+
+  const handleTestWebhook = async () => {
+    setTesting('webhook');
+    try {
+      const msg = await settingsService.testWebhook();
+      toast.success(msg);
     } catch (e: any) { toast.error(e.message); }
     finally { setTesting(null); }
   };
@@ -157,6 +166,9 @@ export default function SettingsPage() {
           icon="🔗"
           title="Make.com / Zapier Webhook"
           subtitle="استقبال العملاء تلقائيًا من المنصات الخارجية"
+          testLabel="اختبار Webhook"
+          onTest={handleTestWebhook}
+          testing={testing === 'webhook'}
         >
           {webhookSettings.map((s) => (
             <SettingRow

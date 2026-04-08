@@ -60,18 +60,11 @@ services:
       - "traefik.http.routers.studentsclients.entrypoints=websecure"
       - "traefik.http.routers.studentsclients.tls.certresolver=letsencrypt"
       - "traefik.http.services.studentsclients.loadbalancer.server.port=8080"
-    networks:
-      - default
-      - traefik-proxy
     expose:
       - "8080"
     depends_on:
       - frontend
       - backend
-
-networks:
-  traefik-proxy:
-    external: true
 
 volumes:
   postgres_data:

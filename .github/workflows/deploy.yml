@@ -31,7 +31,8 @@ jobs:
             git pull origin main
 
             echo "==> Rebuilding Docker images"
-            docker compose build --no-cache
+            APP_VERSION=$(git rev-parse --short HEAD)
+            docker compose build --no-cache --build-arg NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 
             echo "==> Restarting containers"
             docker compose up -d

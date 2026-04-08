@@ -154,4 +154,27 @@ const testSheets = async (req, res) => {
   }
 };
 
-module.exports = { getAll, updateSetting, testTwochat, testSheets };
+// Test Make.com / Zapier Webhook secret
+const testWebhook = async (_req, res) => {
+  const secret = await getSetting('API_WEBHOOK_SECRET');
+  const placeholder = 'REPLACE_WITH_YOUR_SECRET_TOKEN';
+
+  if (!secret || secret.trim() === placeholder) {
+    return error(res, 'يرجى تعيين رمز Webhook سري حقيقي أولاً (غير القيمة الافتراضية)', 400);
+  }
+
+  // Self-test: hit the webhook endpoint with correct credentials and a dummy payload
+  const baseUrl = `http://localhost:${process.env.PORT || 4000}`;
+  try {
+    await axios.post(
+      `${baseUrl}/api/webhooks/make`,
+      { name: 'اختبار الاتصال', phone: '0000000000', service: 'Test', source: 'Test', notes: 'رسالة اختبار تلقائية — لا تعالجها' },
+      { headers: { Authorization: secret, 'Content-Type': 'application/json' } }
+    );
+    return success(res, null, 'رمز Webhook صحيح والنقطة تعمل بنجاح ✅');
+  } catch (err) {
+    return error(res, `فشل اختبار Webhook: ${err.response?.data?.message || err.message}`, 502);
+  }
+};
+
+module.exports = { getAll, updateSetting, testTwochat, testSheets, testWebhook };

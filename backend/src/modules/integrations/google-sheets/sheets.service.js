@@ -55,12 +55,21 @@ const syncStudents = async () => {
     const userRole = role?.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'STUDENT';
 
     try {
-      const existing = await prisma.user.findUnique({ where: { email } });
+      // Use sourceStudentId as the stable key when available, so email changes
+      // in the sheet update the existing account instead of creating a duplicate.
+      let existing = studentId
+        ? await prisma.user.findFirst({ where: { sourceStudentId: studentId } })
+        : null;
+
+      // Fall back to email lookup for records that predate sourceStudentId tracking
+      if (!existing) {
+        existing = await prisma.user.findUnique({ where: { email } });
+      }
 
       if (existing) {
         await prisma.user.update({
-          where: { email },
-          data: { name: name || existing.name, role: userRole, active, sourceStudentId: studentId },
+          where: { id: existing.id },
+          data: { name: name || existing.name, email, role: userRole, active, sourceStudentId: studentId },
         });
         results.updated++;
         if (!active) results.disabled++;

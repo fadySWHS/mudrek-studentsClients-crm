@@ -29,4 +29,9 @@ export const settingsService = {
     const res = await api.post('/settings/test/sheets');
     return res.data.data;
   },
+
+  testWebhook: async (): Promise<string> => {
+    const res = await api.post('/settings/test/webhook');
+    return res.data.message;
+  },
 };

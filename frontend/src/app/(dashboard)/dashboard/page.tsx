@@ -7,6 +7,7 @@ import { reportsService, DashboardStats, StudentPerformance } from '@/services/r
 import { leadsService, Lead } from '@/services/leads';
 import { remindersService, Reminder } from '@/services/leads';
 import Link from 'next/link';
+import Pagination from '@/components/shared/Pagination';
 import { TrendingUp, Users, Briefcase, AlertCircle, CheckCircle, XCircle, Clock, Bell } from 'lucide-react';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
 import { format, isPast } from 'date-fns';
@@ -23,6 +24,8 @@ function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [performance, setPerformance] = useState<StudentPerformance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [perfPage, setPerfPage] = useState(1);
+  const [perfLimit, setPerfLimit] = useState(10);
 
   useEffect(() => {
     Promise.all([
@@ -83,7 +86,7 @@ function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {performance.map((s) => (
+              {performance.slice((perfPage - 1) * perfLimit, perfPage * perfLimit).map((s) => (
                 <tr key={s.id} className="table-row">
                   <td className="table-cell font-medium">{s.name}</td>
                   <td className="table-cell">{s.total}</td>
@@ -103,6 +106,15 @@ function AdminDashboard() {
             </tbody>
           </table>
         </div>
+        {performance.length > perfLimit && (
+          <Pagination
+            page={perfPage}
+            limit={perfLimit}
+            total={performance.length}
+            onPageChange={setPerfPage}
+            onLimitChange={(l) => { setPerfLimit(l); setPerfPage(1); }}
+          />
+        )}
       </div>
     </div>
   );

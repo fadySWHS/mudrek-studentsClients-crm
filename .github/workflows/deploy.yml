@@ -18,16 +18,15 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
+          envs: VPS_PROJECT_PATH,VPS_ENV_FILE
           script: |
             set -e
 
             echo "==> Navigating to project directory"
-            cd ${{ secrets.VPS_PROJECT_PATH }}
+            cd "${{ secrets.VPS_PROJECT_PATH }}"
 
             echo "==> Writing .env file"
-            cat > .env << 'ENVEOF'
-            ${{ secrets.VPS_ENV_FILE }}
-            ENVEOF
+            echo "${{ secrets.VPS_ENV_FILE }}" | base64 -d > .env
 
             echo "==> Pulling latest code from GitHub"
             git pull origin main

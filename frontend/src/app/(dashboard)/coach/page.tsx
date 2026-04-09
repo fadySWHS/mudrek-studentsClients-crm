@@ -22,6 +22,11 @@ export default function CoachPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Live Stream State
+  const [liveStatus, setLiveStatus] = useState<string>('');
+  const [liveFeedback, setLiveFeedback] = useState<string>('');
+  const [parsedTranscript, setParsedTranscript] = useState<string>('');
+
   const fetchHistory = async () => {
     try {
       const token = getToken();
@@ -51,7 +56,9 @@ export default function CoachPage() {
     formData.append('audio', selectedFile);
 
     setIsUploading(true);
-    const loadingToast = toast.loading('جاري تحليل المكالمة المبيعية، قد يستغرق هذا دقيقة أو أكثر...');
+    setLiveStatus('uploading');
+    setLiveFeedback('');
+    setParsedTranscript('');
 
     try {
       const token = getToken();
@@ -63,19 +70,54 @@ export default function CoachPage() {
         body: formData
       });
       
-      const data = await res.json();
-      if (data.success) {
-        toast.success('تم التقييم بنجاح!', { id: loadingToast });
-        setHistory(prev => [data.data, ...prev]);
-        setSelectedFile(null);
-        setExpandedId(data.data.id);
-      } else {
-        throw new Error(data.message);
+      if (!res.body) throw new Error('لا يوجد تجاوب من الخادم');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        let eventBoundary = buffer.indexOf('\n\n');
+        while (eventBoundary !== -1) {
+          const eventStr = buffer.slice(0, eventBoundary);
+          buffer = buffer.slice(eventBoundary + 2);
+          
+          if (eventStr.startsWith('data: ')) {
+            const dataStr = eventStr.slice(6);
+            if (dataStr === '[DONE]') break;
+            
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.error) {
+                toast.error(data.error);
+                break;
+              }
+              if (data.status) setLiveStatus(data.status);
+              if (data.transcript) setParsedTranscript(data.transcript);
+              if (data.text) setLiveFeedback(prev => prev + data.text);
+              if (data.status === 'done' && data.data) {
+                toast.success('تم التقييم بنجاح!');
+                setHistory(prev => [data.data, ...prev]);
+                setSelectedFile(null);
+                setExpandedId(data.data.id);
+              }
+            } catch (e) {
+               console.warn('Failed to parse SSE JSON chunk', e);
+            }
+          }
+          eventBoundary = buffer.indexOf('\n\n');
+        }
       }
     } catch (e: any) {
-      toast.error(e.message || 'حدث خطأ غير متوقع', { id: loadingToast });
+      toast.error(e.message || 'حدث خطأ غير متوقع');
     } finally {
       setIsUploading(false);
+      setLiveStatus('');
     }
   };
 
@@ -126,19 +168,54 @@ export default function CoachPage() {
                   disabled={isUploading}
                   className="btn-primary flex items-center gap-2"
                 >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 text-white animate-spin" />
-                      جاري التحليل...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      بدء تحليل المكالمة
-                    </>
-                  )}
+                  <Sparkles className="w-4 h-4" />
+                  بدء تحليل المكالمة
                 </button>
               </div>
+
+              {/* LIVE TERMINAL UI */}
+              {isUploading && (
+                <div className="w-full mt-8 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-2xl text-right flex flex-col">
+                  {/* Terminal Header */}
+                  <div className="bg-gray-800/80 px-4 py-3 flex items-center border-b border-gray-700">
+                    <div className="flex gap-2 mr-auto">
+                      <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-300 text-xs font-mono">
+                      <Loader2 className="w-3 h-3 animate-spin text-primary-light" />
+                      {liveStatus === 'uploading' && 'جاري رفع الملف إلى الخادم...'}
+                      {liveStatus === 'transcribing' && 'جاري تحويل الصوت إلى نص (Whisper)...'}
+                      {liveStatus === 'analyzing' && 'يتم تحليل استراتيجيات البيع...'}
+                      {liveStatus === 'typing' && 'جاري صياغة التقييم النهائي...'}
+                      {liveStatus === 'done' && 'اكتمل التقييم!'}
+                    </div>
+                  </div>
+                  
+                  {/* Terminal Body */}
+                  <div className="p-5 text-gray-300 font-mono text-sm leading-relaxed max-h-80 overflow-y-auto text-right text-balance">
+                    {parsedTranscript && liveStatus === 'analyzing' && (
+                      <div className="mb-4 text-gray-500 border-b border-gray-800 pb-4">
+                        <span className="text-green-400 block mb-2">&gt; تم استخراج النص بنجاح:</span>
+                        {parsedTranscript.substring(0, 150)}...
+                      </div>
+                    )}
+                    
+                    {liveFeedback ? (
+                      <div className="whitespace-pre-wrap text-emerald-400">
+                        {liveFeedback}
+                        <span className="inline-block w-2 h-4 ml-1 bg-emerald-400 animate-pulse"></span>
+                      </div>
+                    ) : liveStatus === 'transcribing' || liveStatus === 'analyzing' ? (
+                      <div className="text-gray-500 flex flex-col gap-2">
+                        <p className="animate-pulse">&gt; يتم الآن الاستماع للمكالمة ومعالجة الصوتيات...</p>
+                        <p className="opacity-50">الرجاء الانتظار، قد يستغرق هذا بضع ثوانٍ بناءً على طول المكالمة.</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <>

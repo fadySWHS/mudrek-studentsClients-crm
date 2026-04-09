@@ -76,18 +76,28 @@ const prisma = new PrismaClient();
 
 const analyzeCall = async (req, res) => {
   if (!req.file) {
-    return error(res, 'لم يتم إرفاق ملف صوتي', 400);
+    return res.status(400).json({ success: false, message: 'لم يتم إرفاق ملف صوتي' });
   }
+
+  // Set SSE Headers to stream to the browser
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const emit = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
   const openAiKey = await getSetting('OPENAI_API_KEY');
   const openRouterKey = await getSetting('OPENROUTER_API_KEY');
 
   if (!openAiKey || !openRouterKey) {
     fs.unlinkSync(req.file.path);
-    return error(res, 'مفاتيح API غير مهيأة. يرجى تهيئتها من الإعدادات', 503);
+    emit({ error: 'مفاتيح API غير مهيأة. يرجى إضافتها من صفحة الإعدادات.' });
+    return res.end();
   }
 
   try {
+    emit({ status: 'transcribing' });
+    
     // 1. Transcribe Audio using OpenAI Whisper
     const openAiClient = new OpenAI({ apiKey: openAiKey.trim() });
     const transcription = await openAiClient.audio.transcriptions.create({
@@ -97,60 +107,71 @@ const analyzeCall = async (req, res) => {
     });
     
     const transcriptText = transcription.text;
-
-    // We no longer need the local file
     fs.unlinkSync(req.file.path);
 
     if (!transcriptText || transcriptText.trim().length < 10) {
-      return error(res, 'لا يوجد كلام واضح في المقطع أو المقطع قصير جداً', 400);
+      emit({ error: 'لا يوجد كلام واضح في المقطع أو المقطع قصير جداً' });
+      return res.end();
     }
 
-    // 2. Grade Transcript using OpenRouter
+    emit({ status: 'analyzing', transcript: transcriptText });
+
+    // 2. Grade Transcript using OpenRouter (STREAMING)
     const openRouterClient = new OpenAI({
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: openRouterKey.trim(),
     });
 
-    const completion = await openRouterClient.chat.completions.create({
+    const stream = await openRouterClient.chat.completions.create({
       model: 'openai/gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: 'أنت مدير مبيعات محترف ومقيم أداء. مهمتك هي قراءة تفريغ صوتي لمكالمة مبيعات أجراها الطالب، وتقييم أدائه بشكل دقيق. أعد إجابتك بصيغة JSON فقط، بدون أي نصوص خارج الـ JSON. الكائن المطلوب: { "score": 85, "feedback": "شرح مفصل لنقاط القوة وما يجب تحسينه", "objections": "الاعتراضات التي لم يتعامل معها بشكل جيد" }'
+          content: 'أنت مدير مبيعات محترف صارم وعادل. قم بتقييم مكالمة المبيعات الآتية وقدم نصائحك للموظف واذكر الاعتراضات التي لم يتعامل معها بشكل جيد. اجعل إجابتك بصيغة ماركداون منسقة. في نهاية إجابتك تماماً، وفي سطر منفصل، يجب أن تكتب التقييم النهائي من 100 بالصيغة الآتية حرفياً: [التقييم: 85]'
         },
         {
           role: 'user',
-          content: `تفريغ المكالمة:\n\n${transcriptText}`
+          content: `تفريغ المكالمة الصوتية:\n\n${transcriptText}`
         }
       ],
-      response_format: { type: 'json_object' }
+      stream: true,
     });
 
-    const aiResponse = JSON.parse(completion.choices[0].message.content);
+    let fullFeedback = '';
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || '';
+      if (delta) {
+        fullFeedback += delta;
+        emit({ status: 'typing', text: delta });
+      }
+    }
+
+    // Extract score from text (e.g. "[التقييم: 85]")
+    const scoreMatch = fullFeedback.match(/\[التقييم:\s*(\d+)\]/);
+    const numericScore = scoreMatch ? parseInt(scoreMatch[1], 10) : 50;
+
+    // Remove the explicit score block from the feedback for cleaner UI (optional)
+    const cleanFeedback = fullFeedback.replace(/\[التقييم:\s*\d+\]/g, '').trim();
 
     // 3. Save to Database
     const analysis = await prisma.callAnalysis.create({
       data: {
         studentId: req.user.id,
-        score: aiResponse.score || 0,
+        score: numericScore,
         transcript: transcriptText,
-        feedback: aiResponse.feedback || '',
+        feedback: cleanFeedback,
         durationSec: 0, 
       }
     });
 
-    return res.json({
-      success: true,
-      data: analysis
-    });
+    emit({ status: 'done', data: analysis });
+    res.end();
 
   } catch (err) {
     console.error('AI Call Analysis Error:', err);
-    // Cleanup if something crashed midway
-    if (fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-    return error(res, 'حدث خطأ أثناء تحليل المكالمة', 500);
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    emit({ error: 'حدث خطأ داخلي أثناء تحليل المكالمة.' });
+    res.end();
   }
 };
 

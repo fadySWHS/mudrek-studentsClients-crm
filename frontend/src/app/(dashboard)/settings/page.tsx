@@ -244,9 +244,10 @@ export default function SettingsPage() {
           <div className="bg-surface rounded-xl p-4 text-sm space-y-2">
             {[
               { label: 'API URL', value: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api' },
-              { label: 'الخادم', value: 'VPS + Nginx + PM2' },
+              { label: 'الخادم', value: 'VPS + Traefik/Docker' },
               { label: 'قاعدة البيانات', value: 'PostgreSQL' },
-              { label: 'إصدار التطبيق', value: `v${process.env.NEXT_PUBLIC_APP_VERSION || 'dev'} · ${process.env.NEXT_PUBLIC_BUILD_DATE || '—'}` },
+              { label: 'إصدار التطبيق', value: `v${process.env.NEXT_PUBLIC_APP_VERSION || '1.0.3'}` },
+              { label: 'آخر تحديث', value: process.env.NEXT_PUBLIC_BUILD_DATE || '9 أبريل 2026 (Fix 2Chat Timeout)' },
             ].map((item) => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-gray-500">{item.label}</span>

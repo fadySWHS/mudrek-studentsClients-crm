@@ -246,7 +246,7 @@ export default function SettingsPage() {
               { label: 'API URL', value: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api' },
               { label: 'الخادم', value: 'VPS + Nginx + PM2' },
               { label: 'قاعدة البيانات', value: 'PostgreSQL' },
-              { label: 'إصدار التطبيق', value: process.env.NEXT_PUBLIC_APP_VERSION || 'dev' },
+              { label: 'إصدار التطبيق', value: `v${process.env.NEXT_PUBLIC_APP_VERSION || 'dev'} · ${process.env.NEXT_PUBLIC_BUILD_DATE || '—'}` },
             ].map((item) => (
               <div key={item.label} className="flex justify-between">
                 <span className="text-gray-500">{item.label}</span>

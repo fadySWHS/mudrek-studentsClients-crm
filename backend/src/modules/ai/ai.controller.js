@@ -81,10 +81,15 @@ const analyzeCall = async (req, res) => {
 
   // Set SSE Headers to stream to the browser
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, transform=unsafe-inline');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Forces Nginx to proxy streams instantly
+  res.flushHeaders();
 
-  const emit = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+  const emit = (obj) => {
+    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    if (res.flush) res.flush(); // If compression middleware is active
+  };
 
   const openAiKey = await getSetting('OPENAI_API_KEY');
   const openRouterKey = await getSetting('OPENROUTER_API_KEY');

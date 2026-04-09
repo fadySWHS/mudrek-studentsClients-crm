@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "mudrek-students-clints-crm",
+  "private_key_id": "5e4a21ad67d1e5b21c18e348718493d58aad4c0b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEugIBADANBgkqhkiG9w0BAQEFAASCBKQwggSgAgEAAoIBAQCqeIb+/0xrQFxx\n3Ihq8EAKCw4I13YRa3xB0vZRA3UQ8Nrru6mzmFW47Eo6UA25Av4n30SGEFzXcro8\nCxpLyjOCj1J5Re/WNg6QD/2bUwzI9WqsSRR66hbTZr4kEcsUun9Xhvj5k4+IsZft\nNb1MEXURqRT5vsrjDYlYezbRM4yjabXUoMXXfaQIcxCkHC5ebiUSSQWLuPNgGiDK\n+I6+DxSTOpIFquOLu08sZih2gXTgOxVEvtkVxa8vF+HCZBH5BM5W5fBPUyKdt/eq\nL6YzLzSb1jgEdfwSAVhsGPjiyL1WnntogUmG9grKDqAuW6AYy64btZrijiCgRz24\n3Y1h2qZrAgMBAAECgf8fQ+NmHkgu6Z7+sMkvx6OVoa5e/PSqnsLudDyghsTZYsEN\nPjlnwzNjYdqc107Rk7rxGz7LcDTT4UMJ8Ob6JBuv7solW4nF8LZx5mSEqp5YVYX+\nEzhxaw/pO/r467g7CNTkdawPuJ8Ui2WCrliDgrAmvc/eFqYrkMnpDvlH94G7amdc\noN/UBGbQvHkk9Lhf2JYC83pbbfm1D7jrYDcmK1OutFO8fazK8bm/ixJZqX8Pcuxi\n11kJiIYaXsMGr6M65ssDf2JCP4iU3LdohQTa9a4YFQMoDbO97T8uclFiVJlyj11M\nooP/lV3pSN9Jy1k5Dz0j6hCjWkV1zr900wpzlnECgYEA3ZcsU0rQBRfWloIuPhjm\nKDyl3AXvpiKrs/gW+6zWrSSLv8jWxRArOvIZJW2MjlmxDqP39Y9+vAFGbK+XOUqw\nFJTMwwoRsGo3GCkqx3nczE7sRgDIlt5RpPVhr+cfnkgRebqyRExvc8qPTDbhBwVt\nKlCILOjnD3yGSR9QWwbycCUCgYEAxPE02PPTUCUVtfr7I7IWOVO/Y9FTLAoVGuIu\n/UB0HwYjmt6I61iC3hVD3jpwzdDVaKGKi+lTunwG5nNHaPnNEfonG2LIjNVvaTGU\n+X/MoefqJOZ/sReXndfu+voz2zRd/9luaBKFYKIcjI8bNxlz4j/1AhIeNsTQ9Ppk\nD1uib08CgYBHYEiA09pJqbIPbQNkMTUBxPdP9gGJrCVOpR0SGExWHS1+qzyy4VBr\nfkwnSDA8MhvcMWjPilcyS97ZZ334kFxDZOLH+FhWUQBKIgiLlG9QyCNHMT1ri1UV\nI41B0drXazNl2INPiKdlztt1mz/EuTS+qo4SmTrEPEItD48coxI4mQKBgFDpPCoJ\n+n4JzmKmi3k92C2TP6VVwZLtTYBu/pkjWtHIJuagmKYABjwRhoGNhvy32IWVIKOc\np76M6BTTtbnmLx88o8Z3jid2JMCWEztyCvNVoXepjzqFk8/QgClyk81yNVBA10BA\no7VwxMPmo2q+tUJ1vkYshWdA8wxCtsssfY63AoGANG21huB/T++CdLw8DfUCr33b\nwDxiO8N5rQ7+n0u7XZiVswfluJ/4rRVRdneaPQpWtC6Dck+CA+MdgC/o1MtDobgW\nH9bd7tzM7tne7yzkLOlDCYOBAPpNv6KhM9029Crb6No4Nu1y0hUIRJFI6BW7zA6d\n6ZrZ2fswI4OlFyXnhqg=\n-----END PRIVATE KEY-----\n",
+  "client_email": "service-account@mudrek-students-clints-crm.iam.gserviceaccount.com",
+  "client_id": "108192631563709223144",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/service-account%40mudrek-students-clints-crm.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

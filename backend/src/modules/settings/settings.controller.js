@@ -50,6 +50,13 @@ const DEFAULT_SETTINGS = [
     sensitive: true,
     value: 'REPLACE_WITH_YOUR_SECRET_TOKEN',
   },
+  {
+    key: 'OPENROUTER_API_KEY',
+    label: 'مفتاح API لـ OpenRouter',
+    description: 'مفتاح التفويض لاستخدام خدمات الذكاء الاصطناعي من OpenRouter.ai',
+    sensitive: true,
+    value: '',
+  },
 ];
 
 // Ensure all default keys exist in DB

@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { leadsService, commentsService, remindersService, Lead, LeadComment, LeadHistory, Reminder } from '@/services/leads';
 import { useAuth } from '@/context/AuthContext';
+import { useAi } from '@/context/AiContext';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { leadStatusLabels } from '@/utils/leadStatus';
 import toast from 'react-hot-toast';
-import { ArrowRight, MessageSquare, Clock, History, Edit } from 'lucide-react';
+import { ArrowRight, MessageSquare, Clock, History, Edit, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import LeadFormModal from '@/components/leads/LeadFormModal';
@@ -18,6 +19,7 @@ export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { openWithPrompt } = useAi();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
@@ -85,6 +87,14 @@ export default function LeadDetailPage() {
 
   const canEdit = isAdmin || lead.assignedToId === user?.id;
 
+  const aiLeadContext = {
+    id: lead.id,
+    name: lead.name,
+    service: lead.service,
+    budget: lead.budget,
+    notes: lead.notes,
+  };
+
   return (
     <div>
       {/* Back */}
@@ -102,10 +112,19 @@ export default function LeadDetailPage() {
           <p className="text-sm text-gray-500" dir="ltr">{lead.phone}</p>
         </div>
         {canEdit && (
-          <button onClick={() => setShowEdit(true)} className="btn-secondary flex items-center gap-2">
-            <Edit className="h-4 w-4" />
-            تعديل
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => openWithPrompt('اقترح رسالة أو عرض جذاب لهذا العميل بناءً على بياناته، وكيف يمكنني الإغلاق معه؟', aiLeadContext)} 
+              className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <Sparkles className="h-4 w-4" />
+              مساعد AI
+            </button>
+            <button onClick={() => setShowEdit(true)} className="btn-secondary flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              تعديل
+            </button>
+          </div>
         )}
       </div>
 

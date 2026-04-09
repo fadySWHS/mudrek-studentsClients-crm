@@ -26,6 +26,7 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
+    "openai": "^6.34.0",
     "pg": "^8.11.3",
     "winston": "^3.12.0"
   },

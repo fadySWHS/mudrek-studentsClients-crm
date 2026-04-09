@@ -21,6 +21,7 @@ const reportsRoutes = require('./src/modules/reports/reports.routes');
 const integrationsRoutes = require('./src/modules/integrations/integrations.routes');
 const settingsRoutes = require('./src/modules/settings/settings.routes');
 const webhooksRoutes = require('./src/modules/webhooks/webhooks.routes');
+const aiRoutes = require('./src/modules/ai/ai.routes');
 
 // Jobs
 const { startSyncJob } = require('./src/jobs/sync-students.job');
@@ -72,6 +73,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: config.nodeEnv }));

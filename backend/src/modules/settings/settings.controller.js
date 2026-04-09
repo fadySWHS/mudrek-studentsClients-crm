@@ -116,7 +116,10 @@ const testTwochat = async (req, res) => {
     await axios.post(
       'https://api.2chat.io/v1/messages/send',
       { to: groupId, message: '✅ اختبار الاتصال من نظام مدرك — تم الاتصال بنجاح!' },
-      { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+      { 
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout: 10000 
+      }
     );
     return success(res, null, 'تم إرسال رسالة الاختبار بنجاح إلى المجموعة');
   } catch (err) {

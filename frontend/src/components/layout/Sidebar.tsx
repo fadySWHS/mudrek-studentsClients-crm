@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/utils/cn';
 import {
   LayoutDashboard, Users, UserCheck, Bell, BarChart2,
-  Settings, LogOut, ChevronLeft, Briefcase, Activity, X,
+  Settings, LogOut, ChevronLeft, Briefcase, Activity, X, Bot
 } from 'lucide-react';
 
 const studentNav = [
@@ -13,6 +13,7 @@ const studentNav = [
   { href: '/leads', label: 'العملاء المتاحين', icon: Briefcase },
   { href: '/my-leads', label: 'عملائي', icon: UserCheck },
   { href: '/follow-ups', label: 'المتابعات', icon: Bell },
+  { href: '/coach', label: 'المدرب الذكي', icon: Bot },
 ];
 
 const adminNav = [
@@ -21,6 +22,7 @@ const adminNav = [
   { href: '/students', label: 'المستخدمون', icon: Users },
   { href: '/analytics', label: 'التحليلات', icon: BarChart2 },
   { href: '/activity', label: 'سجل النشاط', icon: Activity },
+  { href: '/coach', label: 'المدرب الذكي', icon: Bot },
   { href: '/settings', label: 'الإعدادات', icon: Settings },
 ];
 

@@ -53,7 +53,14 @@ const DEFAULT_SETTINGS = [
   {
     key: 'OPENROUTER_API_KEY',
     label: 'مفتاح API لـ OpenRouter',
-    description: 'مفتاح التفويض لاستخدام خدمات الذكاء الاصطناعي من OpenRouter.ai',
+    description: 'مفتاح التفويض لاستخدام خدمات الذكاء الاصطناعي من OpenRouter.ai (للمحادثة)',
+    sensitive: true,
+    value: '',
+  },
+  {
+    key: 'OPENAI_API_KEY',
+    label: 'مفتاح API لـ OpenAI (للصوت)',
+    description: 'يستخدم حصرياً لتحويل المكالمات الصوتية إلى نص باستخدام Whisper',
     sensitive: true,
     value: '',
   },

@@ -91,7 +91,7 @@ export default function SettingsPage() {
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
   const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
-  const aiSettings = settings.filter((s) => s.key.startsWith('OPENROUTER'));
+  const aiSettings = settings.filter((s) => s.key.startsWith('OPEN'));
   const systemSettings = settings.filter((s) => s.key === 'DEFAULT_STUDENT_PASSWORD');
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
@@ -213,11 +213,11 @@ export default function SettingsPage() {
           </div>
         </SettingsCard>
 
-        {/* ─── AI / OpenRouter ─── */}
+        {/* ─── AI / OpenRouter & OpenAI ─── */}
         <SettingsCard
           icon="🤖"
-          title="الذكاء الاصطناعي (OpenRouter)"
-          subtitle="إعدادات مساعد المبيعات الذكي للطلاب"
+          title="الذكاء الاصطناعي (OpenRouter & OpenAI)"
+          subtitle="إعدادات مساعد المبيعات الذكي للطلاب وتحليل الصوت"
         >
           {aiSettings.map((s) => (
             <SettingRow

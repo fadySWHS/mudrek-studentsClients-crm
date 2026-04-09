@@ -64,11 +64,23 @@ export default function CoachPage() {
       const token = getToken();
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       
+      console.log('Starting fetch to API...');
       const res = await fetch(`${apiUrl}/ai/analyze-call`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
+      console.log('Fetch resolved with status:', res.status);
+      
+      if (!res.ok) {
+        // Read the error message if backend sent one
+        let errMsg = `Server Error: ${res.status}`;
+        try {
+           const errData = await res.clone().json();
+           if (errData.message || errData.error) errMsg = errData.message || errData.error;
+        } catch(e) {}
+        throw new Error(errMsg);
+      }
       
       if (!res.body) throw new Error('لا يوجد تجاوب من الخادم');
 
@@ -78,6 +90,7 @@ export default function CoachPage() {
       let buffer = '';
       while (true) {
         const { done, value } = await reader.read();
+        console.log('Stream chunk received. Done?', done, 'Byte length:', value?.byteLength);
         if (done) break;
         
         buffer += decoder.decode(value, { stream: true });

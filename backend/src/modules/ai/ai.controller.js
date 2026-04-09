@@ -94,16 +94,16 @@ const analyzeCall = async (req, res) => {
     if (res.flush) res.flush(); // If compression middleware is active
   };
 
-  const openAiKey = await getSetting('OPENAI_API_KEY');
-  const openRouterKey = await getSetting('OPENROUTER_API_KEY');
-
-  if (!openAiKey || !openRouterKey) {
-    fs.unlinkSync(req.file.path);
-    emit({ error: 'مفاتيح API غير مهيأة. يرجى إضافتها من صفحة الإعدادات.' });
-    return res.end();
-  }
-
   try {
+    const openAiKey = await getSetting('OPENAI_API_KEY');
+    const openRouterKey = await getSetting('OPENROUTER_API_KEY');
+
+    if (!openAiKey || !openRouterKey) {
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      emit({ error: 'مفاتيح API غير مهيأة. يرجى إضافتها من صفحة الإعدادات.' });
+      return res.end();
+    }
+
     emit({ status: 'transcribing' });
     
     // 1. Transcribe Audio using OpenAI Whisper
@@ -115,7 +115,7 @@ const analyzeCall = async (req, res) => {
     });
     
     const transcriptText = transcription.text;
-    fs.unlinkSync(req.file.path);
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
     if (!transcriptText || transcriptText.trim().length < 10) {
       emit({ error: 'لا يوجد كلام واضح في المقطع أو المقطع قصير جداً' });
@@ -178,7 +178,7 @@ const analyzeCall = async (req, res) => {
   } catch (err) {
     console.error('AI Call Analysis Error:', err);
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    emit({ error: 'حدث خطأ داخلي أثناء تحليل المكالمة.' });
+    emit({ error: 'حدث خطأ داخلي أثناء تحليل المكالمة: ' + (err.message || 'Unknown error') });
     res.end();
   }
 };

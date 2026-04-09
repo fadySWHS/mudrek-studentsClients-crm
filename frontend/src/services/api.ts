@@ -19,7 +19,21 @@ api.interceptors.response.use(
       removeToken();
       window.location.href = '/login';
     }
-    const message = err.response?.data?.message || 'حدث خطأ في الاتصال بالخادم';
+    
+    let message = 'حدث خطأ غير متوقع';
+    if (err.response?.data?.message) {
+      message = err.response.data.message;
+    } else if (err.response) {
+      const dataStr = typeof err.response.data === 'string' 
+        ? err.response.data.substring(0, 100).replace(/\n/g, ' ') 
+        : JSON.stringify(err.response.data).substring(0, 100);
+      message = `[${err.response.status}] إجابة غير متوقعة من الخادم: ${dataStr}`;
+    } else if (err.request) {
+      message = `تعذر الوصول للخادم أو لا توجد استجابة: ${err.message}`;
+    } else {
+      message = err.message || 'حدث خطأ في الاتصال بالخادم';
+    }
+
     return Promise.reject(new Error(message));
   }
 );

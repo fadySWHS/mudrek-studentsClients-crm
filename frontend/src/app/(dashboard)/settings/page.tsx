@@ -91,6 +91,7 @@ export default function SettingsPage() {
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
   const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
+  const aiSettings = settings.filter((s) => s.key.startsWith('OPENROUTER'));
   const systemSettings = settings.filter((s) => s.key === 'DEFAULT_STUDENT_PASSWORD');
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
@@ -210,6 +211,26 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </SettingsCard>
+
+        {/* ─── AI / OpenRouter ─── */}
+        <SettingsCard
+          icon="🤖"
+          title="الذكاء الاصطناعي (OpenRouter)"
+          subtitle="إعدادات مساعد المبيعات الذكي للطلاب"
+        >
+          {aiSettings.map((s) => (
+            <SettingRow
+              key={s.key}
+              setting={s}
+              value={editValues[s.key] ?? ''}
+              show={showValues[s.key] ?? false}
+              saving={saving[s.key] ?? false}
+              onChange={(v) => setEditValues((p) => ({ ...p, [s.key]: v }))}
+              onToggleShow={() => setShowValues((p) => ({ ...p, [s.key]: !p[s.key] }))}
+              onSave={() => handleSave(s.key)}
+            />
+          ))}
         </SettingsCard>
 
         {/* ─── System Settings ─── */}

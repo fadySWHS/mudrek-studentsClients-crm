@@ -86,6 +86,9 @@ const analyzeCall = async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no'); // Forces Nginx to proxy streams instantly
   res.flushHeaders();
 
+  // Nginx Proxy flush hack: send ~2KB of empty comment to burst through initial proxy buffers
+  res.write(':' + Array(2048).fill(' ').join('') + '\n\n');
+
   const emit = (obj) => {
     res.write(`data: ${JSON.stringify(obj)}\n\n`);
     if (res.flush) res.flush(); // If compression middleware is active

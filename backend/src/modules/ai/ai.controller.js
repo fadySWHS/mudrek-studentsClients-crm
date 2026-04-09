@@ -128,6 +128,10 @@ const analyzeCall = async (req, res) => {
     const openRouterClient = new OpenAI({
       baseURL: 'https://openrouter.ai/api/v1',
       apiKey: openRouterKey.trim(),
+      defaultHeaders: {
+        'HTTP-Referer': 'https://studentsclients.mudrek.com',
+        'X-Title': 'Mudrek CRM',
+      }
     });
 
     const stream = await openRouterClient.chat.completions.create({

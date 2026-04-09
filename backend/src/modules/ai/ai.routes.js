@@ -1,6 +1,6 @@
 const express = require('express');
 const { chatStream } = require('./ai.controller');
-const { protect } = require('../../middlewares/auth.middleware');
+const { authenticate } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -9,6 +9,6 @@ const router = express.Router();
  * @route POST /api/ai/chat
  * @access Private
  */
-router.post('/chat', protect, chatStream);
+router.post('/chat', authenticate, chatStream);
 
 module.exports = router;

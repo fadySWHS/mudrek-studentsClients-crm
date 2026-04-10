@@ -18,6 +18,9 @@ const ENV_FALLBACK = {
   WHATSAPP_GROUP_ID:           () => config.whatsappGroupId,
   GOOGLE_SHEET_ID:             () => config.googleSheetId,
   GOOGLE_SERVICE_ACCOUNT_JSON: () => config.googleServiceAccountJson,
+  OPENROUTER_API_KEY:          () => config.openRouterApiKey,
+  REPLICATE_API_TOKEN:         () => config.replicateApiToken,
+  REPLICATE_STT_MODEL:         () => config.replicateSttModel,
 };
 
 const getSetting = async (key) => {

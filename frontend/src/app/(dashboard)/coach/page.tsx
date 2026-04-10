@@ -199,7 +199,7 @@ export default function CoachPage() {
                     <div className="flex items-center gap-2 text-gray-300 text-xs font-mono">
                       <Loader2 className="w-3 h-3 animate-spin text-primary-light" />
                       {liveStatus === 'uploading' && 'جاري رفع الملف إلى الخادم...'}
-                      {liveStatus === 'transcribing' && 'جاري تحويل الصوت إلى نص (Whisper)...'}
+                      {liveStatus === 'transcribing' && 'جاري تحويل الصوت إلى نص...'}
                       {liveStatus === 'analyzing' && 'يتم تحليل استراتيجيات البيع...'}
                       {liveStatus === 'typing' && 'جاري صياغة التقييم النهائي...'}
                       {liveStatus === 'done' && 'اكتمل التقييم!'}

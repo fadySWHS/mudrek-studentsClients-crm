@@ -10,6 +10,8 @@ import { cn } from '@/utils/cn';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
+const AI_SETTING_KEYS = new Set(['OPENROUTER_API_KEY', 'REPLICATE_API_TOKEN', 'REPLICATE_STT_MODEL']);
+
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function SettingsPage() {
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
   const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
-  const aiSettings = settings.filter((s) => s.key.startsWith('OPEN'));
+  const aiSettings = settings.filter((s) => AI_SETTING_KEYS.has(s.key));
   const systemSettings = settings.filter((s) => s.key === 'DEFAULT_STUDENT_PASSWORD');
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
@@ -213,11 +215,11 @@ export default function SettingsPage() {
           </div>
         </SettingsCard>
 
-        {/* ─── AI / OpenRouter & OpenAI ─── */}
+        {/* ─── AI / OpenRouter & Replicate ─── */}
         <SettingsCard
           icon="🤖"
-          title="الذكاء الاصطناعي (OpenRouter & OpenAI)"
-          subtitle="إعدادات مساعد المبيعات الذكي للطلاب وتحليل الصوت"
+          title="الذكاء الاصطناعي (OpenRouter / Replicate)"
+          subtitle="المحادثة وتحليل المكالمات عبر OpenRouter، وتفريغ الصوت عبر Replicate أو OpenRouter"
         >
           {aiSettings.map((s) => (
             <SettingRow

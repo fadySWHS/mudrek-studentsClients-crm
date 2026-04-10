@@ -269,7 +269,7 @@ export default function SettingsPage() {
               { label: 'API URL', value: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api' },
               { label: 'الخادم', value: 'VPS + Traefik/Docker' },
               { label: 'قاعدة البيانات', value: 'PostgreSQL' },
-              { label: 'إصدار التطبيق', value: `v${process.env.NEXT_PUBLIC_APP_VERSION || '1.0.3'}` },
+              { label: 'إصدار التطبيق - تأكيد رفع GitHub 10 أبريل 2026', value: `v${process.env.NEXT_PUBLIC_APP_VERSION || '1.0.3'}` },
               { label: 'آخر تحديث', value: process.env.NEXT_PUBLIC_BUILD_DATE || '9 أبريل 2026 (Fix 2Chat Timeout)' },
             ].map((item) => (
               <div key={item.label} className="flex justify-between">

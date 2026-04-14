@@ -16,6 +16,54 @@ const REPLICATE_TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'canceled'])
 const REPLICATE_MODEL_ALIASES = {
   whisper: 'openai/whisper',
 };
+const PRACTICE_LOCATIONS = ['القاهرة', 'الجيزة', 'الإسكندرية', 'المنصورة', 'طنطا', 'دبي', 'الرياض', 'جدة', 'عمّان'];
+const PRACTICE_INDUSTRIES = [
+  'عيادة أسنان',
+  'مكتب عقارات',
+  'براند ملابس محلي',
+  'مطعم ومطبخ سحابي',
+  'مركز تجميل',
+  'أكاديمية تدريب أونلاين',
+  'شركة شحن محلية',
+  'معرض أثاث',
+  'شركة تشطيبات وديكور',
+  'ورشة سيارات',
+];
+const PRACTICE_SERVICES = [
+  'إدارة السوشيال ميديا',
+  'تصميم موقع تعريفي أو متجر إلكتروني',
+  'تشغيل إعلانات ممولة',
+  'هوية بصرية وبراندنج',
+  'إعداد CRM ومتابعة العملاء',
+  'كتابة محتوى وتصوير قصير',
+  'تحسين الظهور على خرائط Google و SEO',
+  'أتمتة واتساب والردود السريعة',
+];
+const PRACTICE_PERSONALITIES = [
+  'مباشر وصبور لكنه عملي جداً',
+  'ودود ويحب الكلام لكنه متردد',
+  'مشغول ويحب الإجابات السريعة',
+  'تحليلي ويطلب أرقاماً واضحة',
+  'متحفظ ويخاف من المخاطرة',
+  'حماسي لكنه غير منظم',
+  'متشكك بسبب تجربة سابقة سيئة',
+  'يحب المقارنة بين أكثر من مزود خدمة',
+];
+const PRACTICE_OBJECTION_ANGLES = [
+  'يعترض على السعر',
+  'غير مقتنع أن الخدمة ستجيب نتيجة',
+  'يخاف من الالتزام بعقد طويل',
+  'يرى أن الفريق الداخلي يمكنه تنفيذ المطلوب',
+  'يعتقد أن التوقيت غير مناسب الآن',
+  'قلق من قياس العائد على الاستثمار',
+  'متأثر بتجربة فاشلة مع وكالة سابقة',
+];
+const PRACTICE_DIFFICULTIES = ['سهل', 'متوسط', 'صعب'];
+const PRACTICE_BUDGETS = ['منخفضة', 'متوسطة', 'مرنة لكن مشروطة بنتائج', 'مرتفعة نسبياً مع توقعات عالية'];
+const PRACTICE_DIGITAL_MATURITY = ['مبتدئ رقمياً', 'عنده حضور بسيط', 'نشط لكنه غير منظم', 'يملك فريقاً صغيراً وتسويقاً متقطعاً'];
+const PRACTICE_COMPANY_SIZES = ['فردي', 'فريق صغير', 'شركة متوسطة', 'براند عنده أكثر من فرع'];
+
+const pickRandom = (items) => items[Math.floor(Math.random() * items.length)];
 
 const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
 const isOpenRouterKey = (value) => normalize(value).startsWith('sk-or-v1');
@@ -42,6 +90,74 @@ const createOpenRouterClient = (apiKey) =>
       'X-Title': 'Mudrek AI CRM',
     },
   });
+
+const getOpenRouterClientOrThrow = async () => {
+  const storedOpenRouterKey = await getSetting('OPENROUTER_API_KEY');
+  const apiKey = resolveOpenRouterKey(storedOpenRouterKey);
+
+  if (!apiKey) {
+    const err = new Error('OpenRouter API key is not configured');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  return { apiKey, client: createOpenRouterClient(apiKey) };
+};
+
+const extractJsonObject = (value) => {
+  const raw = extractTextFromMessageContent(value);
+  if (!raw) throw new Error('AI response was empty');
+
+  const fencedMatch = raw.match(/```json\s*([\s\S]*?)```/i) || raw.match(/```\s*([\s\S]*?)```/i);
+  const candidate = fencedMatch?.[1] || raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1);
+
+  if (!candidate || !candidate.trim().startsWith('{')) {
+    throw new Error('AI response did not contain a valid JSON object');
+  }
+
+  return JSON.parse(candidate);
+};
+
+const completeText = async (client, payload) => {
+  const completion = await client.chat.completions.create(payload);
+  return extractTextFromMessageContent(completion.choices?.[0]?.message?.content);
+};
+
+const buildPracticeSessionBlueprint = () => ({
+  location: pickRandom(PRACTICE_LOCATIONS),
+  industry: pickRandom(PRACTICE_INDUSTRIES),
+  targetService: pickRandom(PRACTICE_SERVICES),
+  personality: pickRandom(PRACTICE_PERSONALITIES),
+  objectionAngle: pickRandom(PRACTICE_OBJECTION_ANGLES),
+  difficulty: pickRandom(PRACTICE_DIFFICULTIES),
+  budgetRange: pickRandom(PRACTICE_BUDGETS),
+  digitalMaturity: pickRandom(PRACTICE_DIGITAL_MATURITY),
+  companySize: pickRandom(PRACTICE_COMPANY_SIZES),
+});
+
+const sanitizePracticeSession = (session, blueprint) => ({
+  clientName: normalize(session?.clientName) || 'عميل تجريبي',
+  clientRole: normalize(session?.clientRole) || 'صاحب النشاط',
+  businessName: normalize(session?.businessName) || 'نشاط تجاري محلي',
+  industry: normalize(session?.industry) || blueprint.industry,
+  location: normalize(session?.location) || blueprint.location,
+  businessSummary: normalize(session?.businessSummary) || 'يحتاج إلى تحسين حضوره الرقمي وزيادة المبيعات.',
+  companySize: normalize(session?.companySize) || blueprint.companySize,
+  digitalMaturity: normalize(session?.digitalMaturity) || blueprint.digitalMaturity,
+  targetService: normalize(session?.targetService) || blueprint.targetService,
+  mainNeed: normalize(session?.mainNeed) || 'يريد خدمة رقمية تساعده على جلب عملاء بشكل أوضح.',
+  budgetRange: normalize(session?.budgetRange) || blueprint.budgetRange,
+  urgency: normalize(session?.urgency) || 'خلال الشهر الحالي',
+  personality: normalize(session?.personality) || blueprint.personality,
+  communicationStyle: normalize(session?.communicationStyle) || 'يفضل الكلام المباشر والواضح بدون مبالغة.',
+  openingMood: normalize(session?.openingMood) || 'متحفظ لكنه مستعد يسمع لو العرض واضح.',
+  difficulty: normalize(session?.difficulty) || blueprint.difficulty,
+  goals: Array.isArray(session?.goals) ? session.goals.map(normalize).filter(Boolean).slice(0, 4) : [],
+  painPoints: Array.isArray(session?.painPoints) ? session.painPoints.map(normalize).filter(Boolean).slice(0, 4) : [],
+  objections: Array.isArray(session?.objections) ? session.objections.map(normalize).filter(Boolean).slice(0, 4) : [],
+  hiddenContext: Array.isArray(session?.hiddenContext) ? session.hiddenContext.map(normalize).filter(Boolean).slice(0, 4) : [],
+  openingMessage: normalize(session?.openingMessage) || 'أهلاً، أنا مهتم أعرف كيف ممكن تساعدني بخدمة رقمية تناسب شغلي.',
+});
 
 const detectAudioFormat = (file) => {
   const extension = path.extname(file?.originalname || file?.path || '')
@@ -256,23 +372,134 @@ const transcribeCall = async (file, replicateToken, replicateModel, openRouterKe
   return transcribeWithOpenRouter(file, openRouterKey);
 };
 
-const chatStream = async (req, res) => {
-  const storedOpenRouterKey = await getSetting('OPENROUTER_API_KEY');
-  const apiKey = resolveOpenRouterKey(storedOpenRouterKey);
+const createPracticeSession = async (req, res) => {
+  try {
+    const { client } = await getOpenRouterClientOrThrow();
+    const blueprint = buildPracticeSessionBlueprint();
 
-  if (!apiKey) {
-    return error(res, 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات.', 503);
+    const responseText = await completeText(client, {
+      model: DEFAULT_OPENROUTER_TEXT_MODEL,
+      temperature: 1.15,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You generate Arabic roleplay scenarios for sales students. Return one JSON object only with no markdown, no explanation, and no extra text. The JSON keys must be exactly: clientName, clientRole, businessName, industry, location, businessSummary, companySize, digitalMaturity, targetService, mainNeed, budgetRange, urgency, personality, communicationStyle, openingMood, difficulty, goals, painPoints, objections, hiddenContext, openingMessage. All values must be Arabic except proper business names if needed. Arrays must contain 2 to 4 short Arabic strings. Make the scenario realistic, specific, and naturally varied.',
+        },
+        {
+          role: 'user',
+          content:
+            `ابنِ عميلاً جديداً مختلفاً تماماً للتدريب على بيع الخدمات الرقمية. استخدم هذه القيود كإلهام أساسي ووسّعها بشكل منطقي:\n` +
+            `- المدينة: ${blueprint.location}\n` +
+            `- المجال: ${blueprint.industry}\n` +
+            `- الخدمة الرقمية المرجحة: ${blueprint.targetService}\n` +
+            `- نوع الشخصية: ${blueprint.personality}\n` +
+            `- زاوية الاعتراض الأساسية: ${blueprint.objectionAngle}\n` +
+            `- مستوى الصعوبة: ${blueprint.difficulty}\n` +
+            `- الميزانية: ${blueprint.budgetRange}\n` +
+            `- مستوى النضج الرقمي: ${blueprint.digitalMaturity}\n` +
+            `- حجم النشاط: ${blueprint.companySize}\n\n` +
+            'أريد سيناريو يبدأ وكأن العميل الحقيقي فتح المحادثة بنفسه ويحتاج أن يقيّمني كمزوّد خدمة ومندوب مبيعات في نفس الوقت.',
+        },
+      ],
+    });
+
+    const parsed = extractJsonObject(responseText);
+    const session = sanitizePracticeSession(parsed, blueprint);
+
+    return res.json({ success: true, data: session });
+  } catch (err) {
+    console.error('AI Practice Session Error:', err);
+    if (isProviderAuthError(err)) {
+      return error(res, 'مفتاح OpenRouter غير صحيح. راجع إعدادات الذكاء الاصطناعي.', 401);
+    }
+
+    const statusCode = err.statusCode || 502;
+    return error(res, statusCode === 503 ? 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات.' : 'فشل إنشاء جلسة العميل التجريبية', statusCode);
+  }
+};
+
+const practiceChat = async (req, res) => {
+  const { messages, session } = req.body || {};
+
+  if (!session || typeof session !== 'object') {
+    return error(res, 'بيانات جلسة العميل مطلوبة', 400);
   }
 
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return error(res, 'يجب إرسال سجل المحادثة', 400);
+  }
+
+  const safeMessages = messages
+    .filter((message) => ['user', 'assistant'].includes(message?.role) && normalize(message?.content))
+    .map((message) => ({ role: message.role, content: normalize(message.content) }));
+
+  if (!safeMessages.length) {
+    return error(res, 'سجل المحادثة غير صالح', 400);
+  }
+
+  try {
+    const { client } = await getOpenRouterClientOrThrow();
+    const safeSession = sanitizePracticeSession(session, buildPracticeSessionBlueprint());
+    const reply = await completeText(client, {
+      model: DEFAULT_OPENROUTER_TEXT_MODEL,
+      temperature: 0.95,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'أنت الآن تمثل عميلاً محتملاً حقيقياً داخل تدريب مبيعات. ابقَ داخل الشخصية دائماً ولا تتحول إلى مدرب أو مساعد أو شارح. تحدث بالعربية الطبيعية فقط. يجب أن تتصرف حسب الملف التالي بدقة، مع كشف المعلومات تدريجياً مثل عميل حقيقي، ومع الحفاظ على الاعتراضات والشخصية ونبرة الحديث. لا تكتب أي تنسيق خاص أو قوائم إلا إذا طلب منك الطالب ذلك بشكل مباشر. اجعل ردك من جملتين إلى خمس جمل كحد أقصى، وكن واقعياً: قد تتحمس، قد تعترض، قد تسأل، وقد تطلب إثباتاً أو أمثلة، لكن لا توافق بسهولة غير منطقية.\n\n' +
+            `الاسم: ${safeSession.clientName}\n` +
+            `الدور: ${safeSession.clientRole}\n` +
+            `اسم النشاط: ${safeSession.businessName}\n` +
+            `المجال: ${safeSession.industry}\n` +
+            `المدينة: ${safeSession.location}\n` +
+            `ملخص النشاط: ${safeSession.businessSummary}\n` +
+            `الحجم: ${safeSession.companySize}\n` +
+            `النضج الرقمي: ${safeSession.digitalMaturity}\n` +
+            `الخدمة الأقرب لاحتياجه: ${safeSession.targetService}\n` +
+            `الاحتياج الرئيسي: ${safeSession.mainNeed}\n` +
+            `الميزانية: ${safeSession.budgetRange}\n` +
+            `الاستعجال: ${safeSession.urgency}\n` +
+            `الشخصية: ${safeSession.personality}\n` +
+            `أسلوب التواصل: ${safeSession.communicationStyle}\n` +
+            `المزاج الافتتاحي: ${safeSession.openingMood}\n` +
+            `درجة الصعوبة: ${safeSession.difficulty}\n` +
+            `الأهداف: ${safeSession.goals.join(' | ') || 'غير مذكورة'}\n` +
+            `نقاط الألم: ${safeSession.painPoints.join(' | ') || 'غير مذكورة'}\n` +
+            `الاعتراضات: ${safeSession.objections.join(' | ') || 'غير مذكورة'}\n` +
+            `سياق خفي: ${safeSession.hiddenContext.join(' | ') || 'غير مذكور'}`,
+        },
+        ...safeMessages,
+      ],
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        reply: normalize(reply) || 'ممكن توضح لي أكثر كيف ستفيدني الخدمة فعلياً؟',
+      },
+    });
+  } catch (err) {
+    console.error('AI Practice Chat Error:', err);
+    if (isProviderAuthError(err)) {
+      return error(res, 'مفتاح OpenRouter غير صحيح. راجع إعدادات الذكاء الاصطناعي.', 401);
+    }
+
+    const statusCode = err.statusCode || 502;
+    return error(res, statusCode === 503 ? 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات.' : 'فشل الرد من العميل التجريبي', statusCode);
+  }
+};
+
+const chatStream = async (req, res) => {
   const { messages, leadContext, model } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return error(res, 'يجب إرسال مصفوفة الرسائل (messages)', 400);
   }
 
-  const client = createOpenRouterClient(apiKey);
-
   try {
+    const { client } = await getOpenRouterClientOrThrow();
     let systemPrompt = 'أنت مساعد مبيعات ذكي محترف لمساعدة الطلاب على إغلاق الصفقات وإقناع العملاء في نظام مدرك CRM. أجب باحترافية، وقدم نصائح عملية واقتراحات لرسائل أو عروض جاهزة.';
 
     if (leadContext) {
@@ -308,7 +535,7 @@ const chatStream = async (req, res) => {
       if (isProviderAuthError(err)) {
         return error(res, 'مفتاح OpenRouter غير صحيح. راجع إعدادات الذكاء الاصطناعي.', 401);
       }
-      return error(res, 'فشل الاتصال بخادم الذكاء الاصطناعي', 502);
+      return error(res, err.statusCode === 503 ? 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات.' : 'فشل الاتصال بخادم الذكاء الاصطناعي', err.statusCode || 502);
     }
     res.end();
   }
@@ -442,4 +669,10 @@ const getCallAnalyses = async (req, res) => {
   }
 };
 
-module.exports = { chatStream, analyzeCall, getCallAnalyses };
+module.exports = {
+  chatStream,
+  analyzeCall,
+  getCallAnalyses,
+  createPracticeSession,
+  practiceChat,
+};

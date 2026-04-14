@@ -1,7 +1,13 @@
 const express = require('express');
 const multer = require('multer');
 const os = require('os');
-const { chatStream, analyzeCall, getCallAnalyses } = require('./ai.controller');
+const {
+  chatStream,
+  analyzeCall,
+  getCallAnalyses,
+  createPracticeSession,
+  practiceChat,
+} = require('./ai.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
@@ -13,6 +19,20 @@ const upload = multer({ dest: os.tmpdir() });
  * @access Private
  */
 router.post('/chat', authenticate, chatStream);
+
+/**
+ * @desc Generate a random AI roleplay client session
+ * @route POST /api/ai/practice-session
+ * @access Private
+ */
+router.post('/practice-session', authenticate, createPracticeSession);
+
+/**
+ * @desc Continue an AI roleplay client chat
+ * @route POST /api/ai/practice-chat
+ * @access Private
+ */
+router.post('/practice-chat', authenticate, practiceChat);
 
 /**
  * @desc Get User's past AI sales analyses

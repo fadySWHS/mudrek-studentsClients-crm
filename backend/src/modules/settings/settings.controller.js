@@ -59,6 +59,13 @@ const DEFAULT_SETTINGS = [
     value: '',
   },
   {
+    key: 'OPENAI_REALTIME_API_KEY',
+    label: 'مفتاح OpenAI Realtime',
+    description: 'مطلوب لتشغيل المكالمات الصوتية المباشرة داخل المتصفح وبناء جلسات WebRTC الحية.',
+    sensitive: true,
+    value: '',
+  },
+  {
     key: 'REPLICATE_API_TOKEN',
     label: 'مفتاح Replicate',
     description: 'مفضل لتحويل الصوت إلى نص قبل تحليل المكالمة.',
@@ -95,8 +102,9 @@ const ensureDefaults = async () => {
 };
 
 const migrateLegacyAiSettings = async () => {
-  const [openRouterSetting, legacyOpenAiSetting, replicateModelSetting] = await Promise.all([
+  const [openRouterSetting, realtimeSetting, legacyOpenAiSetting, replicateModelSetting] = await Promise.all([
     prisma.systemSetting.findUnique({ where: { key: 'OPENROUTER_API_KEY' } }),
+    prisma.systemSetting.findUnique({ where: { key: 'OPENAI_REALTIME_API_KEY' } }),
     prisma.systemSetting.findUnique({ where: { key: 'OPENAI_API_KEY' } }),
     prisma.systemSetting.findUnique({ where: { key: 'REPLICATE_STT_MODEL' } }),
   ]);
@@ -104,11 +112,19 @@ const migrateLegacyAiSettings = async () => {
   if (!legacyOpenAiSetting) return;
 
   const openRouterValue = openRouterSetting?.value?.trim() || '';
+  const realtimeValue = realtimeSetting?.value?.trim() || '';
   const legacyValue = legacyOpenAiSetting.value?.trim() || '';
 
   if (!openRouterValue && isOpenRouterKey(legacyValue)) {
     await prisma.systemSetting.update({
       where: { key: 'OPENROUTER_API_KEY' },
+      data: { value: legacyValue },
+    });
+  }
+
+  if (!realtimeValue && legacyValue && !isOpenRouterKey(legacyValue)) {
+    await prisma.systemSetting.update({
+      where: { key: 'OPENAI_REALTIME_API_KEY' },
       data: { value: legacyValue },
     });
   }

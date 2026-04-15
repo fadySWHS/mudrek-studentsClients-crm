@@ -8,6 +8,7 @@ module.exports = {
   googleServiceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
   googleSheetId: process.env.GOOGLE_SHEET_ID,
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
+  openAiRealtimeApiKey: process.env.OPENAI_REALTIME_API_KEY || process.env.OPENAI_API_KEY,
   replicateApiToken: process.env.REPLICATE_API_TOKEN,
   replicateSttModel: process.env.REPLICATE_STT_MODEL,
   twochatApiKey: process.env.TWOCHAT_API_KEY,

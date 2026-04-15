@@ -4,9 +4,16 @@ const os = require('os');
 const {
   chatStream,
   analyzeCall,
+  reviewProposal,
+  getVoiceAvailability,
   getCallAnalyses,
   createPracticeSession,
   practiceChat,
+  listVoiceJourneys,
+  createVoiceJourney,
+  startVoiceJourneyCall,
+  createVoiceJourneySession,
+  completeVoiceJourneyCall,
 } = require('./ai.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 
@@ -33,6 +40,60 @@ router.post('/practice-session', authenticate, createPracticeSession);
  * @access Private
  */
 router.post('/practice-chat', authenticate, practiceChat);
+
+/**
+ * @desc Check whether voice practice is enabled
+ * @route GET /api/ai/voice-availability
+ * @access Private
+ */
+router.get('/voice-availability', authenticate, getVoiceAvailability);
+
+/**
+ * @desc List persisted voice-practice client journeys
+ * @route GET /api/ai/voice-journeys
+ * @access Private
+ */
+router.get('/voice-journeys', authenticate, listVoiceJourneys);
+
+/**
+ * @desc Create a new persistent voice-practice client journey
+ * @route POST /api/ai/voice-journeys
+ * @access Private
+ */
+router.post('/voice-journeys', authenticate, createVoiceJourney);
+
+/**
+ * @desc Start a new staged voice-practice call
+ * @route POST /api/ai/voice-journeys/:journeyId/calls/start
+ * @access Private
+ */
+router.post('/voice-journeys/:journeyId/calls/start', authenticate, startVoiceJourneyCall);
+
+/**
+ * @desc Create a WebRTC realtime session for a staged voice-practice call
+ * @route POST /api/ai/voice-journeys/:journeyId/calls/:callId/session
+ * @access Private
+ */
+router.post(
+  '/voice-journeys/:journeyId/calls/:callId/session',
+  authenticate,
+  express.text({ type: ['application/sdp', 'text/plain'] }),
+  createVoiceJourneySession
+);
+
+/**
+ * @desc Complete a staged voice-practice call and review it
+ * @route POST /api/ai/voice-journeys/:journeyId/calls/:callId/complete
+ * @access Private
+ */
+router.post('/voice-journeys/:journeyId/calls/:callId/complete', authenticate, completeVoiceJourneyCall);
+
+/**
+ * @desc Upload a proposal document and get AI review feedback
+ * @route POST /api/ai/review-proposal
+ * @access Private
+ */
+router.post('/review-proposal', authenticate, upload.single('proposal'), reviewProposal);
 
 /**
  * @desc Get User's past AI sales analyses

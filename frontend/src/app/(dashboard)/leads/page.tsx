@@ -10,7 +10,7 @@ import EmptyState from '@/components/shared/EmptyState';
 import Pagination from '@/components/shared/Pagination';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Plus, Search, Filter, RefreshCw, Trash2, Edit, UserPlus } from 'lucide-react';
+import { Plus, Search, RefreshCw, Trash2, Edit, UserPlus, Bot, Sparkles } from 'lucide-react';
 import { leadStatusLabels } from '@/utils/leadStatus';
 import { useRouter } from 'next/navigation';
 import LeadFormModal from '@/components/leads/LeadFormModal';
@@ -97,6 +97,35 @@ export default function LeadsPage() {
           </button>
         ) : undefined}
       />
+
+      <Link
+        href="/coach"
+        className="mb-4 block overflow-hidden rounded-2xl border border-sky-100 bg-[radial-gradient(circle_at_top_right,_rgba(14,165,233,0.18),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(245,158,11,0.12),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                تدريب سريع
+              </div>
+              <h3 className="mt-1 text-sm font-bold text-gray-900">
+                جرّب عميل AI عشوائي للتدريب على البيع قبل متابعة العملاء الحقيقيين
+              </h3>
+              <p className="mt-1 text-xs leading-6 text-gray-600">
+                كل مرة ستحصل على شخصية مختلفة، نشاط مختلف، واعتراضات مختلفة وكأنك تتعامل مع عميل حقيقي.
+              </p>
+            </div>
+          </div>
+
+          <span className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm">
+            افتح المدرب الذكي
+          </span>
+        </div>
+      </Link>
 
       {/* Filters */}
       <div className="card mb-4 flex flex-wrap items-center gap-3">

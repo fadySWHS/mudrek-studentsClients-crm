@@ -23,6 +23,7 @@ model User {
   history         LeadHistory[]
   reminders       Reminder[]
   callAnalyses    CallAnalysis[]
+  voiceJourneys   VoicePracticeJourney[]
 
   @@map("users")
 }
@@ -125,6 +126,48 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model VoicePracticeJourney {
+  id              String                     @id @default(cuid())
+  studentId       String
+  student         User                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  clientName      String
+  clientRole      String
+  businessName    String
+  industry        String
+  location        String
+  dialect         String
+  stage           VoicePracticeStage         @default(FIRST_OUTREACH)
+  status          VoicePracticeJourneyStatus @default(ACTIVE)
+  publicBrief     String?                    @db.Text
+  historySummary  String?                    @db.Text
+  profile         Json
+  discoveredFacts Json?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  calls           VoicePracticeCall[]
+
+  @@map("voice_practice_journeys")
+}
+
+model VoicePracticeCall {
+  id          String                  @id @default(cuid())
+  journeyId   String
+  journey     VoicePracticeJourney    @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  stage       VoicePracticeStage
+  status      VoicePracticeCallStatus @default(IN_PROGRESS)
+  startedAt   DateTime                @default(now())
+  endedAt     DateTime?
+  durationSec Int?
+  transcript  String?                 @db.Text
+  summary     String?                 @db.Text
+  score       Int?
+  review      Json?
+  createdAt   DateTime                @default(now())
+
+  @@map("voice_practice_calls")
+}
+
 enum Role {
   ADMIN
   STUDENT
@@ -144,4 +187,26 @@ enum ReminderStatus {
   PENDING
   DONE
   OVERDUE
+}
+
+enum VoicePracticeStage {
+  FIRST_OUTREACH
+  DISCOVERY_CALL
+  QUALIFICATION_CALL
+  OFFER_CALL
+  FOLLOW_UP_CALL
+  CLOSING_CALL
+}
+
+enum VoicePracticeJourneyStatus {
+  ACTIVE
+  WON
+  LOST
+  ARCHIVED
+}
+
+enum VoicePracticeCallStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
 }

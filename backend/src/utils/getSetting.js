@@ -19,6 +19,7 @@ const ENV_FALLBACK = {
   GOOGLE_SHEET_ID:             () => config.googleSheetId,
   GOOGLE_SERVICE_ACCOUNT_JSON: () => config.googleServiceAccountJson,
   OPENROUTER_API_KEY:          () => config.openRouterApiKey,
+  OPENAI_REALTIME_API_KEY:     () => config.openAiRealtimeApiKey,
   REPLICATE_API_TOKEN:         () => config.replicateApiToken,
   REPLICATE_STT_MODEL:         () => config.replicateSttModel,
 };

@@ -10,7 +10,7 @@ import { cn } from '@/utils/cn';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
-const AI_SETTING_KEYS = new Set(['OPENROUTER_API_KEY', 'REPLICATE_API_TOKEN', 'REPLICATE_STT_MODEL']);
+const AI_SETTING_KEYS = new Set(['OPENROUTER_API_KEY', 'OPENAI_REALTIME_API_KEY', 'REPLICATE_API_TOKEN', 'REPLICATE_STT_MODEL']);
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);

@@ -1,4 +1,5 @@
 import api from './api';
+import { LeadClaimPolicy } from './leads';
 
 export interface Student {
   id: string;
@@ -7,6 +8,9 @@ export interface Student {
   role: 'ADMIN' | 'STUDENT';
   active: boolean;
   sourceStudentId?: string;
+  leadReservationLimitOverride?: number | null;
+  blockNewLeadsAfterWonOverride?: boolean | null;
+  leadPolicy?: LeadClaimPolicy | null;
   createdAt: string;
 }
 
@@ -23,12 +27,28 @@ export const studentsService = {
     return res.data.data;
   },
 
-  create: async (data: { name: string; email: string; password: string; role?: string }): Promise<Student> => {
+  getOne: async (id: string): Promise<Student> => {
+    const res = await api.get(`/users/${id}`);
+    return res.data.data;
+  },
+
+  create: async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+    leadReservationLimitOverride?: number | null;
+    blockNewLeadsAfterWonOverride?: boolean | null;
+  }): Promise<Student> => {
     const res = await api.post('/users', data);
     return res.data.data;
   },
 
-  update: async (id: string, data: Partial<Student> & { password?: string }): Promise<Student> => {
+  update: async (id: string, data: Partial<Student> & {
+    password?: string;
+    leadReservationLimitOverride?: number | null;
+    blockNewLeadsAfterWonOverride?: boolean | null;
+  }): Promise<Student> => {
     const res = await api.put(`/users/${id}`, data);
     return res.data.data;
   },

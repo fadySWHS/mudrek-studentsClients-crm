@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { leadsService, Lead, LeadStatus } from '@/services/leads';
+import { leadsService, Lead, LeadClaimPolicy } from '@/services/leads';
 import { studentsService, Student } from '@/services/students';
 import Header from '@/components/layout/Header';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
@@ -10,9 +10,8 @@ import EmptyState from '@/components/shared/EmptyState';
 import Pagination from '@/components/shared/Pagination';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { Plus, Search, RefreshCw, Trash2, Edit, UserPlus, Bot, Sparkles } from 'lucide-react';
+import { Plus, Search, RefreshCw, Trash2, Edit, UserPlus, Bot, Sparkles, LockKeyhole, CircleAlert } from 'lucide-react';
 import { leadStatusLabels } from '@/utils/leadStatus';
-import { useRouter } from 'next/navigation';
 import LeadFormModal from '@/components/leads/LeadFormModal';
 import AssignModal from '@/components/leads/AssignModal';
 
@@ -23,7 +22,6 @@ const STATUSES: { value: string; label: string }[] = [
 
 export default function LeadsPage() {
   const { isAdmin } = useAuth();
-  const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -35,6 +33,7 @@ export default function LeadsPage() {
   const [editLead, setEditLead] = useState<Lead | null>(null);
   const [assignLead, setAssignLead] = useState<Lead | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [claimPolicy, setClaimPolicy] = useState<LeadClaimPolicy | null>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -52,20 +51,38 @@ export default function LeadsPage() {
     }
   }, [search, statusFilter, page, limit]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  const fetchClaimPolicy = useCallback(async () => {
+    if (isAdmin) return;
+
+    try {
+      const policy = await leadsService.getClaimPolicy();
+      setClaimPolicy(policy);
+    } catch {
+      setClaimPolicy(null);
+    }
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (isAdmin) {
-      // Need a large limit if we're capturing all active students for dropdown
-      studentsService.getAll({ limit: 1000 }).then((res) => setStudents(res.users.filter((u) => u.role === 'STUDENT' && u.active)));
-    }
+    fetchLeads();
+  }, [fetchLeads]);
+
+  useEffect(() => {
+    fetchClaimPolicy();
+  }, [fetchClaimPolicy]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    studentsService
+      .getAll({ limit: 1000 })
+      .then((res) => setStudents(res.users.filter((u) => u.role === 'STUDENT' && u.active)));
   }, [isAdmin]);
 
   const handleClaim = async (id: string) => {
     try {
       await leadsService.claim(id);
       toast.success('تم حجز العميل بنجاح');
-      fetchLeads();
+      await Promise.all([fetchLeads(), fetchClaimPolicy()]);
     } catch (e: any) {
       toast.error(e.message);
     }
@@ -73,6 +90,7 @@ export default function LeadsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا العميل؟')) return;
+
     try {
       await leadsService.delete(id);
       toast.success('تم حذف العميل');
@@ -83,19 +101,26 @@ export default function LeadsPage() {
   };
 
   const title = isAdmin ? 'إدارة العملاء' : 'العملاء المتاحين';
-  const subtitle = isAdmin ? `إجمالي ${total} عميل` : `${total} عميل متاح للحجز`;
+  const subtitle = isAdmin
+    ? `إجمالي ${total} عميل`
+    : claimPolicy?.activeLeadReservationLimit && claimPolicy.activeLeadReservationLimit > 0
+      ? `${total} عميل متاح للحجز · المتبقي لك ${claimPolicy.remainingClaims ?? 0}`
+      : `${total} عميل متاح للحجز`;
+  const canClaimLead = isAdmin || claimPolicy?.canClaimNewLeads !== false;
 
   return (
     <div>
       <Header
         title={title}
         subtitle={subtitle}
-        actions={isAdmin ? (
-          <button onClick={() => { setEditLead(null); setShowForm(true); }} className="btn-primary flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            عميل جديد
-          </button>
-        ) : undefined}
+        actions={
+          isAdmin ? (
+            <button onClick={() => { setEditLead(null); setShowForm(true); }} className="btn-primary flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              عميل جديد
+            </button>
+          ) : undefined
+        }
       />
 
       <Link
@@ -127,7 +152,40 @@ export default function LeadsPage() {
         </div>
       </Link>
 
-      {/* Filters */}
+      {!isAdmin && claimPolicy && (
+        <div
+          className={`mb-4 rounded-2xl border p-4 ${
+            claimPolicy.canClaimNewLeads
+              ? 'border-emerald-100 bg-emerald-50/70'
+              : 'border-amber-200 bg-amber-50/80'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${
+                claimPolicy.canClaimNewLeads ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {claimPolicy.canClaimNewLeads ? <CircleAlert className="h-5 w-5" /> : <LockKeyhole className="h-5 w-5" />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-slate-900">
+                {claimPolicy.canClaimNewLeads ? 'يمكنك حجز عملاء جدد الآن' : 'حجز العملاء الجدد متوقف لهذا الحساب'}
+              </p>
+              <p className="mt-1 text-sm leading-7 text-slate-600">
+                {claimPolicy.reason ||
+                  (claimPolicy.activeLeadReservationLimit && claimPolicy.activeLeadReservationLimit > 0
+                    ? `لديك ${claimPolicy.activeLeadCount} عميل نشط من أصل ${claimPolicy.activeLeadReservationLimit}.`
+                    : `لديك ${claimPolicy.activeLeadCount} عميل نشط حالياً ولا يوجد حد عام مفعل.`)}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                أدوات التدريب ما زالت متاحة لك من صفحة <Link href="/coach" className="font-semibold text-primary hover:underline">المدرب الذكي</Link>.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="card mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -144,7 +202,11 @@ export default function LeadsPage() {
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           >
-            {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {STATUSES.map((status) => (
+              <option key={status.value} value={status.value}>
+                {status.label}
+              </option>
+            ))}
           </select>
         )}
         <button onClick={fetchLeads} className="btn-secondary flex items-center gap-1">
@@ -158,7 +220,6 @@ export default function LeadsPage() {
         <EmptyState icon="📋" title="لا توجد عملاء" description="لا توجد نتائج مطابقة لبحثك" />
       ) : (
         <>
-          {/* Mobile cards */}
           <div className="md:hidden space-y-3">
             {leads.map((lead) => (
               <div key={lead.id} className="card p-4">
@@ -178,7 +239,14 @@ export default function LeadsPage() {
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                   <Link href={`/leads/${lead.id}`} className="btn-ghost py-1.5 px-3 text-xs flex-1 text-center">عرض</Link>
                   {!isAdmin && lead.status === 'AVAILABLE' && (
-                    <button onClick={() => handleClaim(lead.id)} className="btn-primary py-1.5 px-3 text-xs flex-1">احجز</button>
+                    <button
+                      onClick={() => handleClaim(lead.id)}
+                      disabled={!canClaimLead}
+                      className="btn-primary py-1.5 px-3 text-xs flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={!canClaimLead ? claimPolicy?.reason || 'لا يمكن حجز عملاء جدد حالياً' : undefined}
+                    >
+                      {canClaimLead ? 'احجز' : 'مغلق'}
+                    </button>
                   )}
                   {isAdmin && (
                     <>
@@ -198,7 +266,6 @@ export default function LeadsPage() {
             ))}
           </div>
 
-          {/* Desktop table */}
           <div className="hidden md:block table-container">
             <table className="w-full">
               <thead>
@@ -216,7 +283,9 @@ export default function LeadsPage() {
                 {leads.map((lead) => (
                   <tr key={lead.id} className="table-row">
                     <td className="table-cell">
-                      <Link href={`/leads/${lead.id}`} className="font-medium text-primary hover:underline">{lead.name}</Link>
+                      <Link href={`/leads/${lead.id}`} className="font-medium text-primary hover:underline">
+                        {lead.name}
+                      </Link>
                     </td>
                     <td className="table-cell" dir="ltr">{lead.phone}</td>
                     <td className="table-cell">{lead.service || '—'}</td>
@@ -229,13 +298,26 @@ export default function LeadsPage() {
                       <div className="flex items-center gap-1">
                         <Link href={`/leads/${lead.id}`} className="btn-ghost py-1 px-2 text-xs">عرض</Link>
                         {!isAdmin && lead.status === 'AVAILABLE' && (
-                          <button onClick={() => handleClaim(lead.id)} className="btn-primary py-1 px-3 text-xs">احجز</button>
+                          <button
+                            onClick={() => handleClaim(lead.id)}
+                            disabled={!canClaimLead}
+                            className="btn-primary py-1 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!canClaimLead ? claimPolicy?.reason || 'لا يمكن حجز عملاء جدد حالياً' : undefined}
+                          >
+                            {canClaimLead ? 'احجز' : 'مغلق'}
+                          </button>
                         )}
                         {isAdmin && (
                           <>
-                            <button onClick={() => { setEditLead(lead); setShowForm(true); }} className="btn-ghost py-1 px-2 text-xs"><Edit className="h-3 w-3" /></button>
-                            <button onClick={() => setAssignLead(lead)} className="btn-ghost py-1 px-2 text-xs"><UserPlus className="h-3 w-3" /></button>
-                            <button onClick={() => handleDelete(lead.id)} className="text-error hover:bg-error-container py-1 px-2 rounded text-xs"><Trash2 className="h-3 w-3" /></button>
+                            <button onClick={() => { setEditLead(lead); setShowForm(true); }} className="btn-ghost py-1 px-2 text-xs">
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => setAssignLead(lead)} className="btn-ghost py-1 px-2 text-xs">
+                              <UserPlus className="h-3 w-3" />
+                            </button>
+                            <button onClick={() => handleDelete(lead.id)} className="text-error hover:bg-error-container py-1 px-2 rounded text-xs">
+                              <Trash2 className="h-3 w-3" />
+                            </button>
                           </>
                         )}
                       </div>
@@ -253,7 +335,7 @@ export default function LeadsPage() {
         limit={limit}
         total={total}
         onPageChange={setPage}
-        onLimitChange={(l) => { setLimit(l); setPage(1); }}
+        onLimitChange={(nextLimit) => { setLimit(nextLimit); setPage(1); }}
       />
 
       {showForm && (

@@ -11,6 +11,11 @@ import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 const AI_SETTING_KEYS = new Set(['OPENROUTER_API_KEY', 'OPENAI_REALTIME_API_KEY', 'REPLICATE_API_TOKEN', 'REPLICATE_STT_MODEL']);
+const SYSTEM_SETTING_KEYS = new Set([
+  'DEFAULT_STUDENT_PASSWORD',
+  'DEFAULT_STUDENT_ACTIVE_LEAD_LIMIT',
+  'DEFAULT_BLOCK_NEW_LEADS_AFTER_WON',
+]);
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
@@ -94,7 +99,7 @@ export default function SettingsPage() {
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
   const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
   const aiSettings = settings.filter((s) => AI_SETTING_KEYS.has(s.key));
-  const systemSettings = settings.filter((s) => s.key === 'DEFAULT_STUDENT_PASSWORD');
+  const systemSettings = settings.filter((s) => SYSTEM_SETTING_KEYS.has(s.key));
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
 

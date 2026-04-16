@@ -1,6 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
 const { getSetting } = require('../../utils/getSetting');
+const {
+  DEFAULT_ACTIVE_LEAD_LIMIT_KEY,
+  DEFAULT_BLOCK_AFTER_WON_KEY,
+} = require('../../utils/studentLeadPolicy');
 const axios = require('axios');
 const { google } = require('googleapis');
 
@@ -15,6 +19,20 @@ const DEFAULT_SETTINGS = [
     description: 'كلمة المرور التي سيحصل عليها الطلاب الجدد عند إنشاء الحساب أو إعادة التفعيل.',
     sensitive: false,
     value: 'Mudrek@2024',
+  },
+  {
+    key: DEFAULT_ACTIVE_LEAD_LIMIT_KEY,
+    label: 'الحد الافتراضي لحجز العملاء للطلاب',
+    description: 'عدد العملاء النشطين المسموح به لكل طالب في نفس الوقت. اجعل القيمة 0 إذا كنت لا تريد وضع حد افتراضي.',
+    sensitive: false,
+    value: '0',
+  },
+  {
+    key: DEFAULT_BLOCK_AFTER_WON_KEY,
+    label: 'إيقاف حجز العملاء الجدد بعد صفقة ناجحة',
+    description: 'إذا كانت القيمة true فسيتم منع الطالب من أخذ عملاء جدد بعد أول عميل بحالة مغلق - ناجح، مع بقاء أدوات التدريب متاحة.',
+    sensitive: false,
+    value: 'false',
   },
   {
     key: 'TWOCHAT_API_KEY',

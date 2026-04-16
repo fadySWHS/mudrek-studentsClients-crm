@@ -27,6 +27,26 @@ export interface LeadListResponse {
   limit: number;
 }
 
+export interface LeadClaimPolicy {
+  canClaimNewLeads: boolean;
+  reason: string | null;
+  activeLeadCount: number;
+  activeLeadReservationLimit: number | null;
+  remainingClaims: number | null;
+  hasSuccessfulDeal: boolean;
+  blockNewLeadsAfterWon: boolean;
+  defaultActiveLeadLimit: number;
+  defaultBlockNewLeadsAfterWon: boolean;
+  usesDefaultLimit: boolean;
+  usesDefaultBlockAfterWon: boolean;
+  isBlockedByLimit: boolean;
+  isBlockedBySuccessfulDeal: boolean;
+  overrides?: {
+    leadReservationLimitOverride: number | null;
+    blockNewLeadsAfterWonOverride: boolean | null;
+  };
+}
+
 export const leadsService = {
   getAll: async (params?: {
     status?: string;
@@ -56,6 +76,11 @@ export const leadsService = {
 
   claim: async (id: string): Promise<Lead> => {
     const res = await api.post(`/leads/${id}/claim`);
+    return res.data.data;
+  },
+
+  getClaimPolicy: async (): Promise<LeadClaimPolicy> => {
+    const res = await api.get('/leads/claim-policy');
     return res.data.data;
   },
 

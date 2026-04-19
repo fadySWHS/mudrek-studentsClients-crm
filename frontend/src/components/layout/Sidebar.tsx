@@ -1,14 +1,35 @@
 'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { cn } from '@/utils/cn';
 import {
-  LayoutDashboard, Users, UserCheck, Bell, BarChart2,
-  Settings, LogOut, ChevronLeft, Briefcase, Activity, X, Bot
+  Activity,
+  AlertTriangle,
+  BarChart2,
+  Bell,
+  Bot,
+  Briefcase,
+  ChevronLeft,
+  LayoutDashboard,
+  LogOut,
+  Settings,
+  UserCheck,
+  Users,
+  X,
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { leadsService } from '@/services/leads';
+import { cn } from '@/utils/cn';
 
-const studentNav = [
+interface SidebarNavItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  showPendingBadge?: boolean;
+}
+
+const studentNav: SidebarNavItem[] = [
   { href: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
   { href: '/leads', label: 'العملاء المتاحين', icon: Briefcase },
   { href: '/my-leads', label: 'عملائي', icon: UserCheck },
@@ -16,9 +37,9 @@ const studentNav = [
   { href: '/coach', label: 'المدرب الذكي', icon: Bot },
 ];
 
-const adminNav = [
+const adminNav: SidebarNavItem[] = [
   { href: '/dashboard', label: 'لوحة التحكم', icon: LayoutDashboard },
-  { href: '/leads', label: 'إدارة العملاء', icon: Briefcase },
+  { href: '/leads', label: 'إدارة العملاء', icon: Briefcase, showPendingBadge: true },
   { href: '/students', label: 'المستخدمون', icon: Users },
   { href: '/analytics', label: 'التحليلات', icon: BarChart2 },
   { href: '/activity', label: 'سجل النشاط', icon: Activity },
@@ -34,78 +55,138 @@ interface SidebarProps {
 export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout, isAdmin } = useAuth();
+  const [pendingReleaseCount, setPendingReleaseCount] = useState(0);
   const navItems = isAdmin ? adminNav : studentNav;
+
+  useEffect(() => {
+    let active = true;
+
+    if (!isAdmin) {
+      setPendingReleaseCount(0);
+      return () => {
+        active = false;
+      };
+    }
+
+    leadsService
+      .getPendingReleaseRequests(1)
+      .then((response) => {
+        if (active) {
+          setPendingReleaseCount(response.total);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setPendingReleaseCount(0);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, pathname]);
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={onMobileClose}
-        />
-      )}
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={onMobileClose} />
+      ) : null}
 
-      {/* Sidebar */}
-      <aside className={cn(
-        'fixed top-0 right-0 h-full w-64 bg-white border-l border-gray-100 shadow-card flex flex-col z-50 transition-transform duration-300',
-        // Mobile: hidden by default (slide right), open when mobileOpen
-        'translate-x-full md:translate-x-0',
-        mobileOpen && 'translate-x-0',
-      )}>
-        {/* Logo */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+      <aside
+        className={cn(
+          'fixed top-0 right-0 z-50 flex h-full w-64 translate-x-full flex-col border-l border-gray-100 bg-white shadow-card transition-transform duration-300 md:translate-x-0',
+          mobileOpen && 'translate-x-0'
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="مدرك" className="w-10 h-10 object-contain drop-shadow-sm rounded-full" />
+            <img src="/logo.png" alt="مدرك" className="h-10 w-10 rounded-full object-contain drop-shadow-sm" />
             <div>
-              <p className="font-bold text-gray-900 text-sm leading-tight">مدرك</p>
+              <p className="text-sm font-bold leading-tight text-gray-900">مدرك</p>
               <p className="text-xs text-gray-400">نظام إدارة العملاء</p>
             </div>
           </div>
-          {/* Close button — mobile only */}
-          <button onClick={onMobileClose} className="md:hidden p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100">
+          <button
+            onClick={onMobileClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700 md:hidden"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || pathname.startsWith(href + '/');
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={onMobileClose}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
-                  active
-                    ? 'bg-primary-light text-primary-dark'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                )}
-              >
-                <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-primary' : 'text-gray-400')} />
-                <span>{label}</span>
-                {active && <ChevronLeft className="h-3 w-3 mr-auto text-primary" />}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
+          {isAdmin && pendingReleaseCount > 0 ? (
+            <Link
+              href="/leads"
+              onClick={onMobileClose}
+              className="block rounded-2xl border border-amber-200 bg-amber-50/80 p-3 text-right shadow-sm transition-colors hover:bg-amber-100/80"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <AlertTriangle className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-amber-700">تنبيه مراجعة</p>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-900">
+                    يوجد {pendingReleaseCount} طلب إعادة عميل بانتظارك
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">افتح إدارة العملاء وراجع الطلبات المعلقة.</p>
+                </div>
+              </div>
+            </Link>
+          ) : null}
+
+          <div className="space-y-1">
+            {navItems.map(({ href, label, icon: Icon, showPendingBadge }) => {
+              const active = pathname === href || pathname.startsWith(`${href}/`);
+              const showBadge = Boolean(showPendingBadge && pendingReleaseCount > 0);
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onMobileClose}
+                  className={cn(
+                    'flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                    active ? 'bg-primary-light text-primary-dark' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={cn('h-4 w-4 flex-shrink-0', active ? 'text-primary' : 'text-gray-400')} />
+                    <span>{label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {showBadge ? (
+                      <span
+                        className={cn(
+                          'inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold',
+                          active ? 'bg-primary text-white' : 'bg-amber-100 text-amber-800'
+                        )}
+                      >
+                        {pendingReleaseCount}
+                      </span>
+                    ) : null}
+                    {active ? <ChevronLeft className="h-3 w-3 text-primary" /> : null}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
-        {/* User */}
-        <div className="px-4 py-4 border-t border-gray-100">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 bg-primary-light rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-primary font-bold text-xs">{user?.name?.[0]}</span>
+        <div className="border-t border-gray-100 px-4 py-4">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary-light">
+              <span className="text-xs font-bold text-primary">{user?.name?.[0]}</span>
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
+              <p className="truncate text-sm font-semibold text-gray-900">{user?.name}</p>
               <p className="text-xs text-gray-400">{isAdmin ? 'مدير' : 'طالب'}</p>
             </div>
           </div>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-error hover:bg-red-50 rounded-lg transition-colors"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-red-50 hover:text-error"
           >
             <LogOut className="h-4 w-4" />
             تسجيل الخروج

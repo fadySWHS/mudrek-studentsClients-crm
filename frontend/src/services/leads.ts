@@ -81,6 +81,23 @@ export interface LeadReleaseRequest {
   reviewedBy?: { id: string; name: string } | null;
 }
 
+export interface PendingLeadReleaseRequest extends LeadReleaseRequest {
+  lead: {
+    id: string;
+    name: string;
+    phone: string;
+    status: LeadStatus;
+    service?: string | null;
+    assignedToId?: string | null;
+    assignedTo?: { id: string; name: string } | null;
+  };
+}
+
+export interface PendingLeadReleaseRequestResponse {
+  requests: PendingLeadReleaseRequest[];
+  total: number;
+}
+
 export interface LeadCallRecord {
   id: string;
   leadId: string;
@@ -148,6 +165,15 @@ export const leadsService = {
     data: { decision: 'APPROVED' | 'REJECTED'; adminNote?: string }
   ): Promise<LeadReleaseRequest> => {
     const res = await api.patch(`/leads/${id}/release-requests/${requestId}`, data);
+    return res.data.data;
+  },
+
+  getPendingReleaseRequests: async (
+    limit = 10
+  ): Promise<PendingLeadReleaseRequestResponse> => {
+    const res = await api.get('/leads/release-requests/pending', {
+      params: { limit },
+    });
     return res.data.data;
   },
 

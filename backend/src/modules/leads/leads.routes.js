@@ -4,6 +4,7 @@ const os = require('os');
 const {
   getAll,
   getClaimPolicy,
+  listPendingReleaseRequests,
   getOne,
   create,
   update,
@@ -22,6 +23,7 @@ router.use(authenticate);
 
 router.get('/', getAll);
 router.get('/claim-policy', getClaimPolicy);
+router.get('/release-requests/pending', requireAdmin, listPendingReleaseRequests);
 router.get('/:id', getOne);
 router.post('/', requireAdmin, create);
 router.put('/:id', update);

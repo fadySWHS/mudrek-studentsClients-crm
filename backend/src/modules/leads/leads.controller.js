@@ -223,6 +223,40 @@ const getClaimPolicy = async (req, res) => {
   return success(res, await resolveStudentLeadPolicy(req.user.id));
 };
 
+const listPendingReleaseRequests = async (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10) || 10, 1), 50);
+
+  const [requests, total] = await Promise.all([
+    prisma.leadReleaseRequest.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        student: { select: userMiniSelect },
+        lead: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            status: true,
+            service: true,
+            assignedToId: true,
+            assignedTo: { select: userMiniSelect },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    }),
+    prisma.leadReleaseRequest.count({
+      where: { status: 'PENDING' },
+    }),
+  ]);
+
+  return success(res, {
+    requests,
+    total,
+  });
+};
+
 const getOne = async (req, res) => {
   const lead = await prisma.lead.findUnique({
     where: { id: req.params.id },
@@ -656,6 +690,7 @@ const deleteLead = async (req, res) => {
 module.exports = {
   getAll,
   getClaimPolicy,
+  listPendingReleaseRequests,
   getOne,
   create,
   update,

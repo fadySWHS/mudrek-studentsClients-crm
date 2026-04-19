@@ -1,28 +1,44 @@
 'use client';
+
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import Header from '@/components/layout/Header';
-import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import { reportsService, DashboardStats, StudentPerformance } from '@/services/reports';
-import { leadsService, Lead } from '@/services/leads';
-import { remindersService, Reminder } from '@/services/leads';
 import Link from 'next/link';
-import Pagination from '@/components/shared/Pagination';
-import { TrendingUp, Users, Briefcase, AlertCircle, CheckCircle, XCircle, Clock, Bell } from 'lucide-react';
+import { isPast } from 'date-fns';
+import {
+  AlertCircle,
+  Bell,
+  Briefcase,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  Users,
+  XCircle,
+} from 'lucide-react';
+import Header from '@/components/layout/Header';
+import PendingReleaseRequestsAlert from '@/components/leads/PendingReleaseRequestsAlert';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
-import { format, isPast } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import Pagination from '@/components/shared/Pagination';
+import { useAuth } from '@/context/AuthContext';
+import {
+  Lead,
+  PendingLeadReleaseRequest,
+  Reminder,
+  leadsService,
+  remindersService,
+} from '@/services/leads';
+import { DashboardStats, StudentPerformance, reportsService } from '@/services/reports';
 
 export default function DashboardPage() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin } = useAuth();
 
   return isAdmin ? <AdminDashboard /> : <StudentDashboard />;
 }
 
-/* ─── Admin Dashboard ─── */
 function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [performance, setPerformance] = useState<StudentPerformance[]>([]);
+  const [pendingReleaseRequests, setPendingReleaseRequests] = useState<PendingLeadReleaseRequest[]>([]);
+  const [pendingReleaseTotal, setPendingReleaseTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [perfPage, setPerfPage] = useState(1);
   const [perfLimit, setPerfLimit] = useState(10);
@@ -31,48 +47,102 @@ function AdminDashboard() {
     Promise.all([
       reportsService.getDashboard(),
       reportsService.getStudentPerformance(),
-    ]).then(([s, p]) => {
-      setStats(s);
-      setPerformance(p);
-    }).finally(() => setLoading(false));
+      leadsService.getPendingReleaseRequests(3),
+    ])
+      .then(([dashboardStats, studentPerformance, pending]) => {
+        setStats(dashboardStats);
+        setPerformance(studentPerformance);
+        setPendingReleaseRequests(pending.requests);
+        setPendingReleaseTotal(pending.total);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   if (!stats) return null;
 
   const statCards = [
-    { label: 'إجمالي العملاء', value: stats.leads.total, icon: Briefcase, color: 'text-primary', bg: 'bg-primary-light' },
-    { label: 'متاح للحجز', value: stats.leads.available, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'صفقات ناجحة', value: stats.leads.closedWon, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'متأخر عن الموعد', value: stats.overdueReminders, icon: AlertCircle, color: 'text-error', bg: 'bg-error-container' },
-    { label: 'الطلاب النشطاء', value: stats.students.active, icon: Users, color: 'text-secondary', bg: 'bg-secondary-light' },
-    { label: 'خسائر مغلقة', value: stats.leads.closedLost, icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
+    {
+      label: 'إجمالي العملاء',
+      value: stats.leads.total,
+      icon: Briefcase,
+      color: 'text-primary',
+      bg: 'bg-primary-light',
+    },
+    {
+      label: 'متاح للحجز',
+      value: stats.leads.available,
+      icon: TrendingUp,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50',
+    },
+    {
+      label: 'صفقات ناجحة',
+      value: stats.leads.closedWon,
+      icon: CheckCircle,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+    },
+    {
+      label: 'متأخر عن الموعد',
+      value: stats.overdueReminders,
+      icon: AlertCircle,
+      color: 'text-error',
+      bg: 'bg-error-container',
+    },
+    {
+      label: 'الطلاب النشطون',
+      value: stats.students.active,
+      icon: Users,
+      color: 'text-secondary',
+      bg: 'bg-secondary-light',
+    },
+    {
+      label: 'خسائر مغلقة',
+      value: stats.leads.closedLost,
+      icon: XCircle,
+      color: 'text-gray-500',
+      bg: 'bg-gray-100',
+    },
   ];
 
   return (
     <div>
-      <Header title="لوحة التحكم" subtitle={`مرحباً، تفضّل بنظرة عامة على أداء الفريق`} />
+      <Header title="لوحة التحكم" subtitle="مرحبًا، تفضل بنظرة عامة على أداء الفريق" />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {statCards.map((s) => (
-          <div key={s.label} className="stat-card">
-            <div className={`${s.bg} p-3 rounded-xl`}>
-              <s.icon className={`h-5 w-5 ${s.color}`} />
+      <PendingReleaseRequestsAlert
+        total={pendingReleaseTotal}
+        requests={pendingReleaseRequests}
+        className="mb-6"
+      />
+
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        {statCards.map((card) => (
+          <div key={card.label} className="stat-card">
+            <div className={`${card.bg} rounded-xl p-3`}>
+              <card.icon className={`h-5 w-5 ${card.color}`} />
             </div>
             <div>
-              <p className="text-2xl font-black text-gray-900">{s.value}</p>
-              <p className="text-xs text-gray-500">{s.label}</p>
+              <p className="text-2xl font-black text-gray-900">{card.value}</p>
+              <p className="text-xs text-gray-500">{card.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Student Performance Table */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="font-bold text-gray-900">أداء الطلاب</h2>
-          <Link href="/analytics" className="btn-ghost text-xs">عرض التفاصيل</Link>
+          <Link href="/analytics" className="btn-ghost text-xs">
+            عرض التفاصيل
+          </Link>
         </div>
         <div className="table-container">
           <table className="w-full">
@@ -86,45 +156,54 @@ function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {performance.slice((perfPage - 1) * perfLimit, perfPage * perfLimit).map((s) => (
-                <tr key={s.id} className="table-row">
-                  <td className="table-cell font-medium">{s.name}</td>
-                  <td className="table-cell">{s.total}</td>
-                  <td className="table-cell text-green-600 font-medium">{s.closedWon}</td>
-                  <td className="table-cell text-error">{s.closedLost}</td>
+              {performance.slice((perfPage - 1) * perfLimit, perfPage * perfLimit).map((student) => (
+                <tr key={student.id} className="table-row">
+                  <td className="table-cell font-medium">{student.name}</td>
+                  <td className="table-cell">{student.total}</td>
+                  <td className="table-cell font-medium text-green-600">{student.closedWon}</td>
+                  <td className="table-cell text-error">{student.closedLost}</td>
                   <td className="table-cell">
-                    {s.total > 0
-                      ? <span className="font-semibold text-primary">{Math.round((s.closedWon / s.total) * 100)}%</span>
-                      : <span className="text-gray-400">—</span>
-                    }
+                    {student.total > 0 ? (
+                      <span className="font-semibold text-primary">
+                        {Math.round((student.closedWon / student.total) * 100)}%
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
-              {performance.length === 0 && (
-                <tr><td colSpan={5} className="table-cell text-center text-gray-400 py-8">لا توجد بيانات بعد</td></tr>
-              )}
+              {performance.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="table-cell py-8 text-center text-gray-400">
+                    لا توجد بيانات بعد
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
-        {performance.length > perfLimit && (
+        {performance.length > perfLimit ? (
           <Pagination
             page={perfPage}
             limit={perfLimit}
             total={performance.length}
             onPageChange={setPerfPage}
-            onLimitChange={(l) => { setPerfLimit(l); setPerfPage(1); }}
+            onLimitChange={(nextLimit) => {
+              setPerfLimit(nextLimit);
+              setPerfPage(1);
+            }}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
 
-/* ─── Student Dashboard ─── */
 function StudentDashboard() {
   const { user } = useAuth();
   const [myLeads, setMyLeads] = useState<Lead[]>([]);
-  const [available, setAvailable] = useState<number>(0);
+  const [available, setAvailable] = useState(0);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -133,24 +212,32 @@ function StudentDashboard() {
       leadsService.getAll({ assignedTo: user?.id, limit: 5 }),
       leadsService.getAll({ status: 'AVAILABLE', limit: 1 }),
       remindersService.getAll(),
-    ]).then(([mine, avail, rems]) => {
-      setMyLeads(mine.leads);
-      setAvailable(avail.total);
-      setReminders(rems.filter((r) => r.status === 'PENDING'));
-    }).finally(() => setLoading(false));
+    ])
+      .then(([mine, avail, reminderItems]) => {
+        setMyLeads(mine.leads);
+        setAvailable(avail.total);
+        setReminders(reminderItems.filter((reminder) => reminder.status === 'PENDING'));
+      })
+      .finally(() => setLoading(false));
   }, [user?.id]);
 
-  const overdueCount = reminders.filter((r) => isPast(new Date(r.dueAt))).length;
+  const overdueCount = reminders.filter((reminder) => isPast(new Date(reminder.dueAt))).length;
 
-  if (loading) return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <Header title={`مرحباً، ${user?.name?.split(' ')[0]} 👋`} subtitle="إليك ملخص يومك" />
+      <Header title={`مرحبًا، ${user?.name?.split(' ')[0]} 👋`} subtitle="إليك ملخص يومك" />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <div className="stat-card">
-          <div className="bg-primary-light p-3 rounded-xl">
+          <div className="rounded-xl bg-primary-light p-3">
             <Briefcase className="h-5 w-5 text-primary" />
           </div>
           <div>
@@ -159,7 +246,7 @@ function StudentDashboard() {
           </div>
         </div>
         <div className="stat-card">
-          <div className="bg-emerald-50 p-3 rounded-xl">
+          <div className="rounded-xl bg-emerald-50 p-3">
             <TrendingUp className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
@@ -168,7 +255,7 @@ function StudentDashboard() {
           </div>
         </div>
         <div className="stat-card">
-          <div className={`${overdueCount > 0 ? 'bg-error-container' : 'bg-amber-50'} p-3 rounded-xl`}>
+          <div className={`rounded-xl p-3 ${overdueCount > 0 ? 'bg-error-container' : 'bg-amber-50'}`}>
             <Clock className={`h-5 w-5 ${overdueCount > 0 ? 'text-error' : 'text-amber-600'}`} />
           </div>
           <div>
@@ -178,32 +265,39 @@ function StudentDashboard() {
         </div>
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <Link href="/leads" className="card hover:shadow-elevated transition-shadow text-center py-6 cursor-pointer">
-          <TrendingUp className="h-8 w-8 text-primary mx-auto mb-2" />
-          <p className="font-semibold text-gray-900 text-sm">العملاء المتاحين</p>
-          <p className="text-xs text-gray-400 mt-0.5">احجز عميلاً جديداً</p>
+      <div className="mb-8 grid grid-cols-2 gap-4">
+        <Link href="/leads" className="card cursor-pointer py-6 text-center transition-shadow hover:shadow-elevated">
+          <TrendingUp className="mx-auto mb-2 h-8 w-8 text-primary" />
+          <p className="text-sm font-semibold text-gray-900">العملاء المتاحين</p>
+          <p className="mt-0.5 text-xs text-gray-400">احجز عميلًا جديدًا</p>
         </Link>
-        <Link href="/follow-ups" className="card hover:shadow-elevated transition-shadow text-center py-6 cursor-pointer">
-          <Bell className="h-8 w-8 text-amber-500 mx-auto mb-2" />
-          <p className="font-semibold text-gray-900 text-sm">المتابعات</p>
-          <p className="text-xs text-gray-400 mt-0.5">{reminders.length} متابعة معلقة</p>
+        <Link
+          href="/follow-ups"
+          className="card cursor-pointer py-6 text-center transition-shadow hover:shadow-elevated"
+        >
+          <Bell className="mx-auto mb-2 h-8 w-8 text-amber-500" />
+          <p className="text-sm font-semibold text-gray-900">المتابعات</p>
+          <p className="mt-0.5 text-xs text-gray-400">{reminders.length} متابعة معلقة</p>
         </Link>
       </div>
 
-      {/* Recent leads */}
-      {myLeads.length > 0 && (
+      {myLeads.length > 0 ? (
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <h2 className="font-bold text-gray-900">آخر عملائي</h2>
-            <Link href="/my-leads" className="btn-ghost text-xs">عرض الكل</Link>
+            <Link href="/my-leads" className="btn-ghost text-xs">
+              عرض الكل
+            </Link>
           </div>
           <div className="space-y-3">
             {myLeads.map((lead) => (
-              <Link key={lead.id} href={`/leads/${lead.id}`} className="flex items-center justify-between p-3 rounded-lg hover:bg-surface transition-colors">
+              <Link
+                key={lead.id}
+                href={`/leads/${lead.id}`}
+                className="flex items-center justify-between rounded-lg p-3 transition-colors hover:bg-surface"
+              >
                 <div>
-                  <p className="font-medium text-sm text-gray-900">{lead.name}</p>
+                  <p className="text-sm font-medium text-gray-900">{lead.name}</p>
                   <p className="text-xs text-gray-400">{lead.phone}</p>
                 </div>
                 <LeadStatusBadge status={lead.status} />
@@ -211,8 +305,7 @@ function StudentDashboard() {
             ))}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
-

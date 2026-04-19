@@ -1611,4 +1611,9 @@ module.exports = {
   getCallAnalyses,
   createPracticeSession,
   practiceChat,
+  getOpenRouterClientOrThrow,
+  completeText,
+  extractJsonObject,
+  transcribeCall,
+  isProviderAuthError,
 };

@@ -18,6 +18,24 @@ const notifyLeadClaimed = async (lead, student) => {
   }
 };
 
+const notifyLeadReleaseRequested = async (lead, student, studentNote) => {
+  try {
+    const message =
+      `📨 *طلب إعادة عميل إلى المتاح*\n\n` +
+      `👤 العميل: ${lead.name}\n` +
+      `📞 الهاتف: ${lead.phone}\n` +
+      `👨‍🎓 الطالب: ${student.name}\n` +
+      `📌 الحالة الحالية: ${lead.status}\n` +
+      `📝 ملاحظة الطالب: ${studentNote || 'لا توجد ملاحظة'}\n` +
+      `⏰ الوقت: ${new Date().toLocaleString('ar-EG')}`;
+
+    await sendWhatsAppMessage(message);
+    logger.info('WhatsApp notification sent for lead release request', { leadId: lead.id, studentId: student.id });
+  } catch (err) {
+    logger.error('Failed to send lead release request notification', { error: err.message });
+  }
+};
+
 const notifyOverdueReminder = async (reminder, lead, student) => {
   try {
     const message =
@@ -33,4 +51,4 @@ const notifyOverdueReminder = async (reminder, lead, student) => {
   }
 };
 
-module.exports = { notifyLeadClaimed, notifyOverdueReminder };
+module.exports = { notifyLeadClaimed, notifyLeadReleaseRequested, notifyOverdueReminder };

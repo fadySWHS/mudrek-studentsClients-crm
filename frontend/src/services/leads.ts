@@ -4,6 +4,8 @@ export type LeadStatus =
   | 'AVAILABLE' | 'TAKEN' | 'CONTACTED'
   | 'FOLLOW_UP' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST';
 
+export type LeadReleaseRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface Lead {
   id: string;
   name: string;
@@ -14,6 +16,8 @@ export interface Lead {
   status: LeadStatus;
   notes?: string;
   lostReason?: string;
+  aiProfileSummary?: string | null;
+  aiProfileInsights?: LeadAiProfileInsights | null;
   assignedToId?: string;
   assignedTo?: { id: string; name: string };
   createdAt: string;
@@ -47,6 +51,50 @@ export interface LeadClaimPolicy {
   };
 }
 
+export interface LeadAiProfileInsights {
+  discoveredFacts: string[];
+  needs: string[];
+  objections: string[];
+  serviceHint?: string;
+  budgetSignals?: string;
+  decisionTimeline?: string;
+  decisionMaker?: string;
+  sentiment?: string;
+  recommendedNextStep?: string;
+  suggestedStatus?: LeadStatus | null;
+  lastCallRecordId?: string;
+  updatedAt?: string;
+}
+
+export interface LeadReleaseRequest {
+  id: string;
+  leadId: string;
+  studentId: string;
+  status: LeadReleaseRequestStatus;
+  studentNote?: string | null;
+  adminNote?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  student: { id: string; name: string };
+  reviewedBy?: { id: string; name: string } | null;
+}
+
+export interface LeadCallRecord {
+  id: string;
+  leadId: string;
+  uploadedById: string;
+  fileName?: string | null;
+  transcript: string;
+  summary: string;
+  extractedProfile?: LeadAiProfileInsights | null;
+  nextStep?: string | null;
+  suggestedStatus?: LeadStatus | null;
+  createdAt: string;
+  uploadedBy: { id: string; name: string };
+}
+
 export const leadsService = {
   getAll: async (params?: {
     status?: string;
@@ -59,7 +107,17 @@ export const leadsService = {
     return res.data.data;
   },
 
-  getOne: async (id: string): Promise<Lead & { comments: LeadComment[]; history: LeadHistory[]; reminders: Reminder[] }> => {
+  getOne: async (
+    id: string
+  ): Promise<
+    Lead & {
+      comments: LeadComment[];
+      history: LeadHistory[];
+      reminders: Reminder[];
+      releaseRequests: LeadReleaseRequest[];
+      callRecords: LeadCallRecord[];
+    }
+  > => {
     const res = await api.get(`/leads/${id}`);
     return res.data.data;
   },
@@ -76,6 +134,33 @@ export const leadsService = {
 
   claim: async (id: string): Promise<Lead> => {
     const res = await api.patch(`/leads/${id}/claim`);
+    return res.data.data;
+  },
+
+  requestRelease: async (id: string, studentNote?: string): Promise<LeadReleaseRequest> => {
+    const res = await api.post(`/leads/${id}/release-requests`, { studentNote });
+    return res.data.data;
+  },
+
+  reviewReleaseRequest: async (
+    id: string,
+    requestId: string,
+    data: { decision: 'APPROVED' | 'REJECTED'; adminNote?: string }
+  ): Promise<LeadReleaseRequest> => {
+    const res = await api.patch(`/leads/${id}/release-requests/${requestId}`, data);
+    return res.data.data;
+  },
+
+  addCallRecord: async (id: string, audio: File): Promise<LeadCallRecord> => {
+    const formData = new FormData();
+    formData.append('audio', audio);
+
+    const res = await api.post(`/leads/${id}/call-records`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
     return res.data.data;
   },
 

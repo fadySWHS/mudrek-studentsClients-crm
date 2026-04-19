@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { leadsService, Lead } from '@/services/leads';
+import { useAuth } from '@/context/AuthContext';
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 import { leadStatusLabels } from '@/utils/leadStatus';
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function LeadFormModal({ lead, onClose, onSaved }: Props) {
+  const { isAdmin } = useAuth();
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: lead ? {
@@ -36,6 +38,7 @@ export default function LeadFormModal({ lead, onClose, onSaved }: Props) {
   });
 
   const status = watch('status');
+  const editableStatuses = Object.entries(leadStatusLabels).filter(([value]) => isAdmin || value !== 'AVAILABLE');
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -94,7 +97,7 @@ export default function LeadFormModal({ lead, onClose, onSaved }: Props) {
             <div>
               <label className="label">الحالة</label>
               <select {...register('status')} className="input-field">
-                {Object.entries(leadStatusLabels).map(([v, l]) => (
+                {editableStatuses.map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
               </select>

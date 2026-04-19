@@ -25,6 +25,9 @@ model User {
   history         LeadHistory[]
   reminders       Reminder[]
   callAnalyses    CallAnalysis[]
+  releaseRequests LeadReleaseRequest[] @relation("LeadReleaseRequester")
+  reviewedReleaseRequests LeadReleaseRequest[] @relation("LeadReleaseReviewer")
+  uploadedLeadCallRecords LeadCallRecord[] @relation("LeadCallRecordUploader")
   voiceJourneys   VoicePracticeJourney[]
 
   @@map("users")
@@ -40,6 +43,8 @@ model Lead {
   status       LeadStatus @default(AVAILABLE)
   notes        String?
   lostReason   String?
+  aiProfileSummary  String?   @db.Text
+  aiProfileInsights Json?
   assignedTo   User?      @relation("AssignedLeads", fields: [assignedToId], references: [id])
   assignedToId String?
   createdAt    DateTime   @default(now())
@@ -48,6 +53,8 @@ model Lead {
   comments     LeadComment[]
   history      LeadHistory[]
   reminders    Reminder[]
+  releaseRequests LeadReleaseRequest[]
+  callRecords LeadCallRecord[]
 
   @@map("leads")
 }
@@ -103,6 +110,44 @@ model CallAnalysis {
   createdAt    DateTime @default(now())
 
   @@map("call_analyses")
+}
+
+model LeadReleaseRequest {
+  id           String                   @id @default(cuid())
+  lead         Lead                     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId       String
+  student      User                     @relation("LeadReleaseRequester", fields: [studentId], references: [id])
+  studentId    String
+  status       LeadReleaseRequestStatus @default(PENDING)
+  studentNote  String?                  @db.Text
+  adminNote    String?                  @db.Text
+  reviewedBy   User?                    @relation("LeadReleaseReviewer", fields: [reviewedById], references: [id])
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([leadId, status])
+  @@index([studentId, status])
+  @@map("lead_release_requests")
+}
+
+model LeadCallRecord {
+  id               String     @id @default(cuid())
+  lead             Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId           String
+  uploadedBy       User       @relation("LeadCallRecordUploader", fields: [uploadedById], references: [id])
+  uploadedById     String
+  fileName         String?
+  transcript       String     @db.Text
+  summary          String     @db.Text
+  extractedProfile Json?
+  nextStep         String?    @db.Text
+  suggestedStatus  LeadStatus?
+  createdAt        DateTime   @default(now())
+
+  @@index([leadId, createdAt])
+  @@map("lead_call_records")
 }
 
 model SyncLog {
@@ -189,6 +234,12 @@ enum ReminderStatus {
   PENDING
   DONE
   OVERDUE
+}
+
+enum LeadReleaseRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum VoicePracticeStage {

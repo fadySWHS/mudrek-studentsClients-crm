@@ -1,3 +1,4 @@
+const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
 const notificationService = require('../notifications/notifications.service');
@@ -9,8 +10,100 @@ const {
   parseLimit,
   resolveStudentLeadPolicy,
 } = require('../../utils/studentLeadPolicy');
+const {
+  getOpenRouterClientOrThrow,
+  completeText,
+  extractJsonObject,
+  transcribeCall,
+  isProviderAuthError,
+} = require('../ai/ai.controller');
 
 const prisma = new PrismaClient();
+
+const OPENROUTER_TEXT_MODEL = process.env.OPENROUTER_TEXT_MODEL || 'openai/gpt-4o-mini';
+const RELEASE_REQUEST_DECISIONS = new Set(['APPROVED', 'REJECTED']);
+const CALL_RECORD_SUGGESTED_STATUSES = new Set([
+  'TAKEN',
+  'CONTACTED',
+  'FOLLOW_UP',
+  'QUALIFIED',
+  'CLOSED_WON',
+  'CLOSED_LOST',
+]);
+
+const userMiniSelect = { id: true, name: true };
+
+const leadDetailInclude = {
+  assignedTo: { select: userMiniSelect },
+  comments: {
+    include: { user: { select: userMiniSelect } },
+    orderBy: { createdAt: 'desc' },
+  },
+  history: {
+    include: { actor: { select: userMiniSelect } },
+    orderBy: { createdAt: 'desc' },
+  },
+  reminders: { orderBy: { dueAt: 'asc' } },
+  releaseRequests: {
+    include: {
+      student: { select: userMiniSelect },
+      reviewedBy: { select: userMiniSelect },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+  callRecords: {
+    include: {
+      uploadedBy: { select: userMiniSelect },
+    },
+    orderBy: { createdAt: 'desc' },
+  },
+};
+
+const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const normalizeArray = (value, maxItems = 5) =>
+  Array.isArray(value)
+    ? value.map((item) => normalizeText(item)).filter(Boolean).slice(0, maxItems)
+    : [];
+
+const cleanupTempFile = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+};
+
+const sanitizeLeadCallProfile = (value = {}) => {
+  const suggestedStatus = normalizeText(value?.suggestedStatus).toUpperCase();
+
+  return {
+    summary: normalizeText(value?.summary) || 'تم رفع تسجيل المكالمة واستخراج ملخص مختصر لها.',
+    discoveredFacts: normalizeArray(value?.discoveredFacts),
+    needs: normalizeArray(value?.needs),
+    objections: normalizeArray(value?.objections),
+    serviceHint: normalizeText(value?.serviceHint),
+    budgetSignals: normalizeText(value?.budgetSignals),
+    decisionTimeline: normalizeText(value?.decisionTimeline),
+    decisionMaker: normalizeText(value?.decisionMaker),
+    sentiment: normalizeText(value?.sentiment),
+    recommendedNextStep: normalizeText(value?.recommendedNextStep),
+    suggestedStatus: CALL_RECORD_SUGGESTED_STATUSES.has(suggestedStatus) ? suggestedStatus : null,
+  };
+};
+
+const buildLeadAiProfileInsights = (profile, callRecordId) => ({
+  discoveredFacts: profile.discoveredFacts,
+  needs: profile.needs,
+  objections: profile.objections,
+  serviceHint: profile.serviceHint,
+  budgetSignals: profile.budgetSignals,
+  decisionTimeline: profile.decisionTimeline,
+  decisionMaker: profile.decisionMaker,
+  sentiment: profile.sentiment,
+  recommendedNextStep: profile.recommendedNextStep,
+  suggestedStatus: profile.suggestedStatus,
+  lastCallRecordId: callRecordId,
+  updatedAt: new Date().toISOString(),
+});
 
 const getStudentScopedWhere = (req) => {
   const filters = [];
@@ -108,7 +201,7 @@ const getAll = async (req, res) => {
   const [leads, total] = await Promise.all([
     prisma.lead.findMany({
       where,
-      include: { assignedTo: { select: { id: true, name: true } } },
+      include: { assignedTo: { select: userMiniSelect } },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: parseInt(limit, 10),
@@ -133,18 +226,7 @@ const getClaimPolicy = async (req, res) => {
 const getOne = async (req, res) => {
   const lead = await prisma.lead.findUnique({
     where: { id: req.params.id },
-    include: {
-      assignedTo: { select: { id: true, name: true } },
-      comments: {
-        include: { user: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
-      },
-      history: {
-        include: { actor: { select: { id: true, name: true } } },
-        orderBy: { createdAt: 'desc' },
-      },
-      reminders: { orderBy: { dueAt: 'asc' } },
-    },
+    include: leadDetailInclude,
   });
 
   if (!lead) return error(res, 'العميل غير موجود', 404);
@@ -188,11 +270,23 @@ const update = async (req, res) => {
     return error(res, 'غير مصرح بتعديل هذا العميل', 403);
   }
 
+  if (req.user.role === 'STUDENT' && Object.prototype.hasOwnProperty.call(req.body, 'assignedToId')) {
+    return error(res, 'الطالب لا يمكنه تغيير تعيين العميل', 403);
+  }
+
   const data = { name, phone, service, source, budget, notes };
 
   if (status && (req.user.role === 'ADMIN' || existing.assignedToId === req.user.id)) {
+    if (req.user.role === 'STUDENT' && status === 'AVAILABLE') {
+      return error(res, 'لا يمكنك إعادة العميل إلى المتاح مباشرة. أرسل طلب مراجعة للإدارة أولاً.', 409);
+    }
+
     data.status = status;
     data.lostReason = status === 'CLOSED_LOST' ? lostReason || null : null;
+
+    if (req.user.role === 'ADMIN' && status === 'AVAILABLE') {
+      data.assignedToId = null;
+    }
   }
 
   if (req.user.role === 'ADMIN' && Object.prototype.hasOwnProperty.call(req.body, 'assignedToId')) {
@@ -280,9 +374,294 @@ const claimLead = async (req, res) => {
   }
 };
 
+const requestLeadRelease = async (req, res) => {
+  if (req.user.role !== 'STUDENT') {
+    return error(res, 'هذا الإجراء مخصص للطلاب فقط', 403);
+  }
+
+  const studentNote = normalizeText(req.body?.studentNote);
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: req.params.id },
+    include: { assignedTo: { select: userMiniSelect } },
+  });
+
+  if (!lead) return error(res, 'العميل غير موجود', 404);
+  if (lead.assignedToId !== req.user.id) {
+    return error(res, 'لا يمكنك طلب إعادة عميل غير مخصص لك', 403);
+  }
+
+  if (CLOSED_STATUSES.includes(lead.status)) {
+    return error(res, 'هذا العميل مغلق بالفعل ولا يحتاج إلى إعادة للمتاح', 400);
+  }
+
+  const existingPendingRequest = await prisma.leadReleaseRequest.findFirst({
+    where: {
+      leadId: lead.id,
+      studentId: req.user.id,
+      status: 'PENDING',
+    },
+  });
+
+  if (existingPendingRequest) {
+    return error(res, 'يوجد طلب مراجعة مفتوح لهذا العميل بالفعل', 409);
+  }
+
+  const releaseRequest = await prisma.$transaction(async (tx) => {
+    const created = await tx.leadReleaseRequest.create({
+      data: {
+        leadId: lead.id,
+        studentId: req.user.id,
+        studentNote: studentNote || null,
+      },
+      include: {
+        student: { select: userMiniSelect },
+        reviewedBy: { select: userMiniSelect },
+      },
+    });
+
+    await tx.leadHistory.create({
+      data: {
+        leadId: lead.id,
+        actorId: req.user.id,
+        actionType: 'RELEASE_REQUESTED',
+        toValue: created.id,
+      },
+    });
+
+    return created;
+  });
+
+  notificationService.notifyLeadReleaseRequested(lead, req.user, studentNote).catch(() => {});
+
+  return success(res, releaseRequest, 'تم إرسال طلب مراجعة إعادة العميل للإدارة', 201);
+};
+
+const reviewLeadReleaseRequest = async (req, res) => {
+  const decision = normalizeText(req.body?.decision).toUpperCase();
+  const adminNote = normalizeText(req.body?.adminNote);
+
+  if (!RELEASE_REQUEST_DECISIONS.has(decision)) {
+    return error(res, 'قرار المراجعة غير صالح', 400);
+  }
+
+  const releaseRequest = await prisma.leadReleaseRequest.findFirst({
+    where: {
+      id: req.params.requestId,
+      leadId: req.params.id,
+    },
+    include: {
+      lead: true,
+      student: { select: userMiniSelect },
+      reviewedBy: { select: userMiniSelect },
+    },
+  });
+
+  if (!releaseRequest) return error(res, 'طلب المراجعة غير موجود', 404);
+  if (releaseRequest.status !== 'PENDING') {
+    return error(res, 'تمت مراجعة هذا الطلب بالفعل', 409);
+  }
+
+  if (decision === 'APPROVED' && releaseRequest.lead.assignedToId !== releaseRequest.studentId) {
+    return error(res, 'تغيّرت حالة العميل قبل الموافقة. حدّث الصفحة ثم راجع الحالة الحالية.', 409);
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const updatedRequest = await tx.leadReleaseRequest.update({
+      where: { id: releaseRequest.id },
+      data: {
+        status: decision,
+        adminNote: adminNote || null,
+        reviewedById: req.user.id,
+        reviewedAt: new Date(),
+      },
+      include: {
+        student: { select: userMiniSelect },
+        reviewedBy: { select: userMiniSelect },
+      },
+    });
+
+    if (decision === 'APPROVED') {
+      const updatedLead = await tx.lead.update({
+        where: { id: releaseRequest.leadId },
+        data: {
+          status: 'AVAILABLE',
+          assignedToId: null,
+          lostReason: null,
+        },
+      });
+
+      if (updatedLead.status !== releaseRequest.lead.status) {
+        await tx.leadHistory.create({
+          data: {
+            leadId: updatedLead.id,
+            actorId: req.user.id,
+            actionType: 'STATUS_CHANGE',
+            fromValue: releaseRequest.lead.status,
+            toValue: updatedLead.status,
+          },
+        });
+      }
+
+      if (updatedLead.assignedToId !== releaseRequest.lead.assignedToId) {
+        await tx.leadHistory.create({
+          data: {
+            leadId: updatedLead.id,
+            actorId: req.user.id,
+            actionType: 'ASSIGNED',
+            fromValue: releaseRequest.lead.assignedToId || null,
+            toValue: updatedLead.assignedToId || null,
+          },
+        });
+      }
+    }
+
+    await tx.leadHistory.create({
+      data: {
+        leadId: releaseRequest.leadId,
+        actorId: req.user.id,
+        actionType: decision === 'APPROVED' ? 'RELEASE_APPROVED' : 'RELEASE_REJECTED',
+        fromValue: releaseRequest.studentId,
+        toValue: updatedRequest.id,
+      },
+    });
+
+    return updatedRequest;
+  });
+
+  return success(
+    res,
+    result,
+    decision === 'APPROVED' ? 'تمت الموافقة على إعادة العميل إلى المتاح' : 'تم رفض طلب إعادة العميل'
+  );
+};
+
+const addLeadCallRecord = async (req, res) => {
+  if (!req.file) {
+    return error(res, 'لم يتم إرفاق ملف صوتي', 400);
+  }
+
+  try {
+    const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
+    if (!lead) return error(res, 'العميل غير موجود', 404);
+
+    if (req.user.role === 'STUDENT' && lead.assignedToId !== req.user.id) {
+      return error(res, 'لا يمكنك إضافة تسجيل مكالمة لهذا العميل', 403);
+    }
+
+    const { apiKey, client } = await getOpenRouterClientOrThrow();
+    const transcriptText = await transcribeCall(req.file, '', '', apiKey);
+
+    if (!transcriptText || transcriptText.trim().length < 10) {
+      return error(res, 'لا يوجد كلام واضح كفاية في التسجيل لتحليله', 400);
+    }
+
+    const profileText = await completeText(client, {
+      model: OPENROUTER_TEXT_MODEL,
+      temperature: 0.2,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'أنت محلل CRM يحول مكالمة عميل إلى بيانات عملية داخل الملف. أعد JSON فقط بدون أي شرح إضافي وبالمفاتيح التالية فقط: summary, discoveredFacts, needs, objections, serviceHint, budgetSignals, decisionTimeline, decisionMaker, sentiment, recommendedNextStep, suggestedStatus. summary فقرة عربية قصيرة من 2 إلى 4 جمل. discoveredFacts و needs و objections مصفوفات عربية قصيرة من 0 إلى 5 عناصر. serviceHint و budgetSignals و decisionTimeline و decisionMaker و sentiment و recommendedNextStep نصوص عربية قصيرة ويمكن أن تكون فارغة. suggestedStatus يجب أن يكون واحدا من: TAKEN, CONTACTED, FOLLOW_UP, QUALIFIED, CLOSED_WON, CLOSED_LOST. إذا لم يتضح شيء فاجعل suggestedStatus = TAKEN.',
+        },
+        {
+          role: 'user',
+          content:
+            `بيانات العميل الحالية:\n` +
+            `الاسم: ${lead.name}\n` +
+            `الهاتف: ${lead.phone}\n` +
+            `الخدمة الحالية: ${lead.service || 'غير محددة'}\n` +
+            `الميزانية الحالية: ${lead.budget || 'غير محددة'}\n` +
+            `الحالة الحالية: ${lead.status}\n` +
+            `ملاحظات الملف: ${lead.notes || 'لا توجد'}\n\n` +
+            `تفريغ المكالمة:\n${transcriptText}`,
+        },
+      ],
+    });
+
+    const parsedProfile = sanitizeLeadCallProfile(extractJsonObject(profileText));
+
+    const result = await prisma.$transaction(async (tx) => {
+      const callRecord = await tx.leadCallRecord.create({
+        data: {
+          leadId: lead.id,
+          uploadedById: req.user.id,
+          fileName: req.file.originalname || null,
+          transcript: transcriptText,
+          summary: parsedProfile.summary,
+          extractedProfile: parsedProfile,
+          nextStep: parsedProfile.recommendedNextStep || null,
+          suggestedStatus: parsedProfile.suggestedStatus || null,
+        },
+        include: {
+          uploadedBy: { select: userMiniSelect },
+        },
+      });
+
+      const aiProfileInsights = buildLeadAiProfileInsights(parsedProfile, callRecord.id);
+      const leadUpdateData = {
+        aiProfileSummary: parsedProfile.summary,
+        aiProfileInsights,
+      };
+
+      if (!lead.service && parsedProfile.serviceHint) {
+        leadUpdateData.service = parsedProfile.serviceHint;
+      }
+
+      if (!lead.budget && parsedProfile.budgetSignals) {
+        leadUpdateData.budget = parsedProfile.budgetSignals;
+      }
+
+      await tx.lead.update({
+        where: { id: lead.id },
+        data: leadUpdateData,
+      });
+
+      await tx.leadHistory.create({
+        data: {
+          leadId: lead.id,
+          actorId: req.user.id,
+          actionType: 'CALL_RECORD_ADDED',
+          toValue: callRecord.id,
+        },
+      });
+
+      return callRecord;
+    });
+
+    return success(res, result, 'تمت إضافة تسجيل المكالمة وتحليلها', 201);
+  } catch (err) {
+    if (isProviderAuthError(err)) {
+      return error(res, 'مفتاح OpenRouter غير صحيح. راجع إعدادات الذكاء الاصطناعي.', 401);
+    }
+
+    return error(
+      res,
+      err.statusCode === 503
+        ? 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات.'
+        : err.message || 'فشل تحليل تسجيل المكالمة',
+      err.statusCode || 502
+    );
+  } finally {
+    cleanupTempFile(req.file?.path);
+  }
+};
+
 const deleteLead = async (req, res) => {
   await prisma.lead.delete({ where: { id: req.params.id } });
   return success(res, null, 'تم حذف العميل');
 };
 
-module.exports = { getAll, getClaimPolicy, getOne, create, update, claimLead, deleteLead };
+module.exports = {
+  getAll,
+  getClaimPolicy,
+  getOne,
+  create,
+  update,
+  claimLead,
+  requestLeadRelease,
+  reviewLeadReleaseRequest,
+  addLeadCallRecord,
+  deleteLead,
+};

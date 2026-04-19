@@ -66,6 +66,8 @@ const normalizeArray = (value, maxItems = 5) =>
     ? value.map((item) => normalizeText(item)).filter(Boolean).slice(0, maxItems)
     : [];
 
+const normalizePhone = (value) => normalizeText(value).replace(/(?!^\+)[^\d]/g, '');
+
 const cleanupTempFile = (filePath) => {
   if (filePath && fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
@@ -104,6 +106,54 @@ const buildLeadAiProfileInsights = (profile, callRecordId) => ({
   lastCallRecordId: callRecordId,
   updatedAt: new Date().toISOString(),
 });
+
+const sanitizeLeadIntakeFromText = (value = {}) => ({
+  name: normalizeText(value?.name),
+  phone: normalizePhone(value?.phone),
+  service: normalizeText(value?.service),
+  source: normalizeText(value?.source),
+  budget: normalizeText(value?.budget),
+  notes: normalizeText(value?.notes),
+  missingFields: normalizeArray(value?.missingFields),
+});
+
+const buildLeadNotesFromTextIntake = (rawText, extractedNotes) => {
+  const cleanedRawText = normalizeText(rawText);
+  const cleanedNotes = normalizeText(extractedNotes);
+  const parts = [];
+
+  if (cleanedNotes) {
+    parts.push(cleanedNotes);
+  }
+
+  if (cleanedRawText) {
+    parts.push(`النص الخام:\n${cleanedRawText}`);
+  }
+
+  return parts.join('\n\n') || null;
+};
+
+const extractLeadDataFromText = async (rawText) => {
+  const { client } = await getOpenRouterClientOrThrow();
+
+  const extractionText = await completeText(client, {
+    model: OPENROUTER_TEXT_MODEL,
+    temperature: 0.15,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'أنت مساعد CRM يستخرج بيانات عميل جديد من رسالة غير مرتبة أو وصف حر. أعد JSON فقط بدون أي شرح إضافي وبالمفاتيح التالية فقط: name, phone, service, source, budget, notes, missingFields. استخدم نصًا عربيًا قصيرًا وواضحًا. إذا كانت المعلومة غير موجودة فاجعل قيمتها سلسلة فارغة. missingFields مصفوفة بأسماء الحقول المهمة غير الموجودة من بين: name, phone, service, source, budget. لا تخترع أي بيانات غير مذكورة صراحة أو غير مفهومة بوضوح. notes يجب أن تكون ملخصًا عمليًا قصيرًا لما فهمته عن العميل واحتياجه.',
+      },
+      {
+        role: 'user',
+        content: `استخرج بيانات العميل من النص التالي:\n"""\n${rawText}\n"""`,
+      },
+    ],
+  });
+
+  return sanitizeLeadIntakeFromText(extractJsonObject(extractionText));
+};
 
 const getStudentScopedWhere = (req) => {
   const filters = [];
@@ -282,6 +332,57 @@ const create = async (req, res) => {
   });
 
   return success(res, lead, 'تم إنشاء العميل بنجاح', 201);
+};
+
+const createFromText = async (req, res) => {
+  const rawText = normalizeText(req.body?.text);
+
+  if (!rawText) {
+    return error(res, 'النص المطلوب لتحليل العميل غير موجود', 400);
+  }
+
+  try {
+    const extractedLead = await extractLeadDataFromText(rawText);
+    const missingRequiredFields = ['name', 'phone'].filter((field) => !extractedLead[field]);
+
+    if (missingRequiredFields.length > 0) {
+      return error(
+        res,
+        `تعذر إنشاء العميل لأن الذكاء الاصطناعي لم يستخرج ${missingRequiredFields.join(' و ')} بشكل واضح من النص.`,
+        400
+      );
+    }
+
+    const lead = await prisma.lead.create({
+      data: {
+        name: extractedLead.name,
+        phone: extractedLead.phone,
+        service: extractedLead.service || null,
+        source: extractedLead.source || null,
+        budget: extractedLead.budget || null,
+        notes: buildLeadNotesFromTextIntake(rawText, extractedLead.notes),
+        status: 'AVAILABLE',
+      },
+    });
+
+    await prisma.leadHistory.create({
+      data: { leadId: lead.id, actorId: req.user.id, actionType: 'CREATED', toValue: 'AVAILABLE' },
+    });
+
+    return success(res, lead, 'تم إنشاء العميل من النص الحر بنجاح', 201);
+  } catch (err) {
+    if (isProviderAuthError(err)) {
+      return error(res, 'مفتاح OpenRouter غير صحيح. راجع إعدادات الذكاء الاصطناعي.', 401);
+    }
+
+    return error(
+      res,
+      err.statusCode === 503
+        ? 'مفتاح OpenRouter غير متوفر. يرجى تهيئته من الإعدادات أولًا.'
+        : err.message || 'فشل تحليل النص وإنشاء العميل',
+      err.statusCode || 502
+    );
+  }
 };
 
 const update = async (req, res) => {
@@ -693,6 +794,7 @@ module.exports = {
   listPendingReleaseRequests,
   getOne,
   create,
+  createFromText,
   update,
   claimLead,
   requestLeadRelease,

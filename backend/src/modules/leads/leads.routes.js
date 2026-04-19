@@ -7,6 +7,7 @@ const {
   listPendingReleaseRequests,
   getOne,
   create,
+  createFromText,
   update,
   claimLead,
   deleteLead,
@@ -24,6 +25,7 @@ router.use(authenticate);
 router.get('/', getAll);
 router.get('/claim-policy', getClaimPolicy);
 router.get('/release-requests/pending', requireAdmin, listPendingReleaseRequests);
+router.post('/from-text', requireAdmin, createFromText);
 router.get('/:id', getOne);
 router.post('/', requireAdmin, create);
 router.put('/:id', update);

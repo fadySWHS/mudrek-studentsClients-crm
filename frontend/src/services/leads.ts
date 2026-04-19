@@ -144,6 +144,11 @@ export const leadsService = {
     return res.data.data;
   },
 
+  createFromText: async (text: string): Promise<Lead> => {
+    const res = await api.post('/leads/from-text', { text });
+    return res.data.data;
+  },
+
   update: async (id: string, data: Partial<Lead>): Promise<Lead> => {
     const res = await api.put(`/leads/${id}`, data);
     return res.data.data;

@@ -75,7 +75,7 @@ export const leadsService = {
   },
 
   claim: async (id: string): Promise<Lead> => {
-    const res = await api.post(`/leads/${id}/claim`);
+    const res = await api.patch(`/leads/${id}/claim`);
     return res.data.data;
   },
 

@@ -153,8 +153,9 @@ const resolveMessageTarget = async () => {
     }
 
     if (matches.length > 1) {
+      const matchingNumbers = matches.map((match) => match.sourceNumber).join(', ');
       throw createTwochatError(
-        'تم العثور على المجموعة على أكثر من رقم متصل. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER.',
+        `تم العثور على المجموعة على أكثر من رقم متصل: ${matchingNumbers}. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER.`,
         400
       );
     }

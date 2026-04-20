@@ -75,45 +75,21 @@ const listConnectedNumbers = async (client) => {
   });
 };
 
-const resolveSourceNumber = async (client) => {
-  const configured = normalizePhoneNumber(await getSetting('TWOCHAT_SOURCE_NUMBER'));
-  if (configured) return configured;
-
-  const connectedNumbers = await listConnectedNumbers(client);
-
-  if (connectedNumbers.length === 1) {
-    return connectedNumbers[0].phone_number;
-  }
-
-  if (connectedNumbers.length === 0) {
-    throw createTwochatError('لا يوجد رقم WhatsApp متصل بحساب 2Chat. اربط رقماً أولاً من لوحة 2Chat.', 400);
-  }
-
-  throw createTwochatError(
-    'يوجد أكثر من رقم متصل على 2Chat. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER.',
-    400
-  );
-};
-
 const listGroups = async (client, sourceNumber) => {
   const response = await client.get(`/whatsapp/groups/${encodeURIComponent(sourceNumber)}`);
   return Array.isArray(response.data?.data) ? response.data.data : [];
 };
 
-const resolveGroupUuid = async (client, sourceNumber) => {
-  const configuredGroupId = String((await getSetting('WHATSAPP_GROUP_ID')) || '').trim();
-  if (!configuredGroupId) {
-    throw createTwochatError('يرجى تعيين معرّف مجموعة WhatsApp أولاً.', 400);
-  }
+const findConfiguredGroup = (groups, configuredGroupId) =>
+  groups.find((group) => group.uuid === configuredGroupId || group.wa_group_id === configuredGroupId);
 
+const resolveGroupUuid = async (client, sourceNumber, configuredGroupId) => {
   if (configuredGroupId.startsWith('WAG')) {
     return configuredGroupId;
   }
 
   const groups = await listGroups(client, sourceNumber);
-  const targetGroup = groups.find(
-    (group) => group.uuid === configuredGroupId || group.wa_group_id === configuredGroupId
-  );
+  const targetGroup = findConfiguredGroup(groups, configuredGroupId);
 
   if (!targetGroup?.uuid) {
     throw createTwochatError(
@@ -127,17 +103,66 @@ const resolveGroupUuid = async (client, sourceNumber) => {
 
 const resolveMessageTarget = async () => {
   const apiKey = String((await getSetting('TWOCHAT_API_KEY')) || '').trim();
+  const configuredGroupId = String((await getSetting('WHATSAPP_GROUP_ID')) || '').trim();
+
   if (!apiKey) {
     throw createTwochatError('يرجى تعيين مفتاح 2Chat أولاً.', 400);
+  }
+  if (!configuredGroupId) {
+    throw createTwochatError('يرجى تعيين معرّف مجموعة WhatsApp أولاً.', 400);
   }
 
   const client = getTwochatClient(apiKey);
 
   try {
-    const sourceNumber = await resolveSourceNumber(client);
-    const groupUuid = await resolveGroupUuid(client, sourceNumber);
+    const configuredSource = normalizePhoneNumber(await getSetting('TWOCHAT_SOURCE_NUMBER'));
+    if (configuredSource) {
+      const groupUuid = await resolveGroupUuid(client, configuredSource, configuredGroupId);
+      return { client, sourceNumber: configuredSource, groupUuid };
+    }
 
-    return { client, sourceNumber, groupUuid };
+    const connectedNumbers = await listConnectedNumbers(client);
+    if (connectedNumbers.length === 0) {
+      throw createTwochatError('لا يوجد رقم WhatsApp متصل بحساب 2Chat. اربط رقماً أولاً من لوحة 2Chat.', 400);
+    }
+
+    if (connectedNumbers.length === 1) {
+      const sourceNumber = connectedNumbers[0].phone_number;
+      const groupUuid = await resolveGroupUuid(client, sourceNumber, configuredGroupId);
+      return { client, sourceNumber, groupUuid };
+    }
+
+    if (configuredGroupId.startsWith('WAG')) {
+      throw createTwochatError(
+        'يوجد أكثر من رقم متصل على 2Chat. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER عند استخدام UUID للمجموعة.',
+        400
+      );
+    }
+
+    const matches = [];
+    for (const entry of connectedNumbers) {
+      const groups = await listGroups(client, entry.phone_number);
+      const matchedGroup = findConfiguredGroup(groups, configuredGroupId);
+      if (matchedGroup?.uuid) {
+        matches.push({ sourceNumber: entry.phone_number, groupUuid: matchedGroup.uuid });
+      }
+    }
+
+    if (matches.length === 1) {
+      return { client, sourceNumber: matches[0].sourceNumber, groupUuid: matches[0].groupUuid };
+    }
+
+    if (matches.length > 1) {
+      throw createTwochatError(
+        'تم العثور على المجموعة على أكثر من رقم متصل. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER.',
+        400
+      );
+    }
+
+    throw createTwochatError(
+      'تعذر العثور على المجموعة المحددة داخل أي من أرقام 2Chat المتصلة. تحقق من معرّف المجموعة أو حدّد رقم الإرسال يدوياً.',
+      400
+    );
   } catch (err) {
     throw parseTwochatError(err, 'تعذر تهيئة الاتصال مع 2Chat');
   }

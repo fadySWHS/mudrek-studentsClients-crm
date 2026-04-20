@@ -15,10 +15,28 @@ const {
   createVoiceJourneySession,
   completeVoiceJourneyCall,
 } = require('./ai.controller');
+const {
+  getLeadConversation,
+  streamLeadConversation,
+} = require('./lead-assistant.controller');
 const { authenticate } = require('../../middleware/auth.middleware');
 
 const router = express.Router();
 const upload = multer({ dest: os.tmpdir() });
+
+/**
+ * @desc Get the persisted AI conversation for a lead
+ * @route GET /api/ai/leads/:leadId/conversation
+ * @access Private
+ */
+router.get('/leads/:leadId/conversation', authenticate, getLeadConversation);
+
+/**
+ * @desc Continue the persisted AI conversation for a lead
+ * @route POST /api/ai/leads/:leadId/chat
+ * @access Private
+ */
+router.post('/leads/:leadId/chat', authenticate, streamLeadConversation);
 
 /**
  * @desc Generate an AI response stream

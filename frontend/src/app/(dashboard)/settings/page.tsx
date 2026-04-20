@@ -27,16 +27,20 @@ export default function SettingsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; disabled: number } | null>(null);
 
-  const fetchSettings = async () => {
-    setLoading(true);
+  const fetchSettings = async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
       const data = await settingsService.getAll();
       setSettings(data);
-      const initial: Record<string, string> = {};
-      data.forEach((s) => { initial[s.key] = ''; }); // start blank — user types new value to update
-      setEditValues(initial);
+      setEditValues((prev) => {
+        const next = { ...prev };
+        data.forEach((s) => {
+          if (next[s.key] === undefined) next[s.key] = '';
+        });
+        return next;
+      });
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   };
 
@@ -50,7 +54,7 @@ export default function SettingsPage() {
       await settingsService.update(key, val);
       toast.success('تم حفظ الإعداد');
       setEditValues((p) => ({ ...p, [key]: '' }));
-      fetchSettings();
+      fetchSettings({ silent: true });
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -96,10 +100,35 @@ export default function SettingsPage() {
   };
 
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
+  const isWhatsAppNotifySetting = (key: string) =>
+    key === 'WHATSAPP_NOTIFICATIONS_ENABLED' || key.startsWith('WHATSAPP_NOTIFY_');
+  const twochatCoreSettings = twochatSettings.filter((s) => !isWhatsAppNotifySetting(s.key));
+  const whatsappNotifySettings = twochatSettings
+    .filter((s) => isWhatsAppNotifySetting(s.key))
+    .sort((a, b) => {
+      if (a.key === 'WHATSAPP_NOTIFICATIONS_ENABLED') return -1;
+      if (b.key === 'WHATSAPP_NOTIFICATIONS_ENABLED') return 1;
+      return a.key.localeCompare(b.key);
+    });
   const sheetsSettings = settings.filter((s) => s.key.startsWith('GOOGLE'));
   const webhookSettings = settings.filter((s) => s.key.startsWith('API_WEBHOOK'));
   const aiSettings = settings.filter((s) => AI_SETTING_KEYS.has(s.key));
   const systemSettings = settings.filter((s) => SYSTEM_SETTING_KEYS.has(s.key));
+
+  const parseBool = (value: string) => String(value || '').trim().toLowerCase() === 'true';
+
+  const handleToggle = async (key: string, next: boolean) => {
+    setSaving((p) => ({ ...p, [key]: true }));
+    try {
+      await settingsService.update(key, next ? 'true' : 'false');
+      toast.success('تم حفظ الإعداد');
+      fetchSettings({ silent: true });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving((p) => ({ ...p, [key]: false }));
+    }
+  };
 
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
 
@@ -119,7 +148,7 @@ export default function SettingsPage() {
           onTest={handleTestTwochat}
           testing={testing === 'twochat'}
         >
-          {twochatSettings.map((s) => (
+          {twochatCoreSettings.map((s) => (
             <SettingRow
               key={s.key}
               setting={s}
@@ -131,6 +160,23 @@ export default function SettingsPage() {
               onSave={() => handleSave(s.key)}
             />
           ))}
+
+          {whatsappNotifySettings.length > 0 && (
+            <div className="pt-4 mt-4 border-t border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900 mb-2">إشعارات WhatsApp</h3>
+              <div className="space-y-3">
+                {whatsappNotifySettings.map((s) => (
+                  <SettingToggleRow
+                    key={s.key}
+                    setting={s}
+                    checked={parseBool(s.value)}
+                    saving={saving[s.key] ?? false}
+                    onToggle={(next) => handleToggle(s.key, next)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </SettingsCard>
 
         {/* ─── Google Sheets ─── */}
@@ -401,6 +447,68 @@ function SettingRow({
         </button>
       </div>
     </div>
+  );
+}
+
+function SettingToggleRow({
+  setting,
+  checked,
+  saving,
+  onToggle,
+}: {
+  setting: SystemSetting;
+  checked: boolean;
+  saving: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <div className="bg-surface rounded-xl p-4 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <label className="text-sm font-semibold text-gray-900">{setting.label}</label>
+        {setting.description && (
+          <p className="text-xs text-gray-400 mt-0.5">{setting.description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span className={cn('badge', checked ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600')}>
+          {checked ? 'مفعل' : 'متوقف'}
+        </span>
+        <ToggleSwitch checked={checked} disabled={saving} onChange={onToggle} />
+      </div>
+    </div>
+  );
+}
+
+function ToggleSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30',
+        checked ? 'bg-green-500' : 'bg-gray-300',
+        disabled && 'opacity-50 cursor-not-allowed'
+      )}
+    >
+      <span
+        className={cn(
+          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+          checked ? 'translate-x-5' : 'translate-x-1'
+        )}
+      />
+    </button>
   );
 }
 

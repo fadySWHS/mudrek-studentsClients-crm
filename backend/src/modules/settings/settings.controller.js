@@ -6,8 +6,12 @@ const {
   DEFAULT_BLOCK_AFTER_WON_KEY,
 } = require('../../utils/studentLeadPolicy');
 const { testTwochatConnection } = require('../integrations/twochat/twochat.service');
+const {
+  buildGoogleSheetsClient,
+  mapGoogleSheetsError,
+  parseGoogleServiceAccountJson,
+} = require('../../utils/googleSheetsAuth');
 const axios = require('axios');
-const { google } = require('googleapis');
 
 const prisma = new PrismaClient();
 
@@ -57,6 +61,55 @@ const DEFAULT_SETTINGS = [
     value: '',
   },
   {
+    key: 'WHATSAPP_NOTIFICATIONS_ENABLED',
+    label: 'تفعيل إشعارات WhatsApp',
+    description: 'مفتاح رئيسي لتفعيل/إيقاف جميع إشعارات WhatsApp المرسلة إلى المجموعة.',
+    sensitive: false,
+    value: 'true',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_LEAD_CLAIMED',
+    label: 'إشعار عند أخذ العميل',
+    description: 'يرسل إشعاراً عندما يقوم طالب بحجز/أخذ عميل.',
+    sensitive: false,
+    value: 'true',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_LEAD_CREATED',
+    label: 'إشعار عند إضافة عميل جديد',
+    description: 'يرسل إشعاراً عند إنشاء عميل جديد (يدوي/نص حر/Webhook).',
+    sensitive: false,
+    value: 'true',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_LEAD_RELEASE_REQUESTED',
+    label: 'إشعار طلب إعادة العميل للمتاح',
+    description: 'يرسل إشعاراً عند إرسال طالب طلب مراجعة لإعادة العميل للمتاح.',
+    sensitive: false,
+    value: 'true',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_REMINDER_OVERDUE',
+    label: 'إشعار تذكير متأخر',
+    description: 'يرسل إشعاراً عندما يتحول تذكير إلى متأخر (OVERDUE).',
+    sensitive: false,
+    value: 'false',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_LEAD_CLOSED_WON',
+    label: 'إشعار إغلاق - ناجح',
+    description: 'يرسل إشعاراً عند إغلاق العميل كصفقة ناجحة.',
+    sensitive: false,
+    value: 'true',
+  },
+  {
+    key: 'WHATSAPP_NOTIFY_LEAD_CLOSED_LOST',
+    label: 'إشعار إغلاق - خاسر',
+    description: 'يرسل إشعاراً عند إغلاق العميل كصفقة خاسرة.',
+    sensitive: false,
+    value: 'false',
+  },
+  {
     key: 'GOOGLE_SHEET_ID',
     label: 'معرّف Google Sheets',
     description: 'الجزء الموجود داخل رابط الجدول بين /d/ و /edit.',
@@ -66,7 +119,7 @@ const DEFAULT_SETTINGS = [
   {
     key: 'GOOGLE_SERVICE_ACCOUNT_JSON',
     label: 'بيانات Google Service Account',
-    description: 'محتوى ملف JSON الخاص بحساب الخدمة بالكامل في سطر واحد.',
+    description: 'الصق محتوى ملف JSON الخاص بحساب الخدمة بالكامل كما هو. يدعم النظام النص متعدد الأسطر أو النص المضغوط في سطر واحد.',
     sensitive: true,
     value: '',
   },
@@ -80,7 +133,7 @@ const DEFAULT_SETTINGS = [
   {
     key: 'OPENROUTER_API_KEY',
     label: 'مفتاح OpenRouter',
-    description: 'مطلوب للمحادثة وتحليل المكالمات، ويمكن استخدامه أيضاً لتفريغ الصوت عند غياب Replicate.',
+    description: 'مطلوب للمحادثة وتحليل المكالمات، ويمكن استخدامه أيضًا لتفريغ الصوت عند غياب Replicate.',
     sensitive: true,
     value: '',
   },
@@ -101,7 +154,7 @@ const DEFAULT_SETTINGS = [
   {
     key: 'REPLICATE_STT_MODEL',
     label: 'نموذج Replicate للتفريغ',
-    description: 'اختياري. اتركه على whisper ما لم تكن تستخدم نموذجاً آخر متوافقاً على Replicate.',
+    description: 'اختياري. اتركه على whisper ما لم تكن تستخدم نموذجًا آخر متوافقًا على Replicate.',
     sensitive: false,
     value: 'whisper',
   },
@@ -213,7 +266,7 @@ const testTwochat = async (_req, res) => {
   const groupId = await getSetting('WHATSAPP_GROUP_ID');
 
   if (!apiKey || !groupId) {
-    return error(res, 'يرجى تعيين مفتاح 2Chat ومعرّف المجموعة أولاً', 400);
+    return error(res, 'يرجى تعيين مفتاح 2Chat ومعرّف المجموعة أولًا', 400);
   }
 
   try {
@@ -233,17 +286,13 @@ const testSheets = async (_req, res) => {
   const sheetId = await getSetting('GOOGLE_SHEET_ID');
 
   if (!saJson || !sheetId) {
-    return error(res, 'يرجى تعيين بيانات خدمة Google ومعرّف الجدول أولاً', 400);
+    return error(res, 'يرجى تعيين بيانات خدمة Google ومعرّف الجدول أولًا', 400);
   }
 
+  let credentials;
   try {
-    const credentials = JSON.parse(saJson);
-    const auth = new google.auth.GoogleAuth({
-      credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    const sheets = google.sheets({ version: 'v4', auth });
+    credentials = parseGoogleServiceAccountJson(saJson);
+    const sheets = buildGoogleSheetsClient(credentials);
     const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
     const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
 
@@ -255,7 +304,8 @@ const testSheets = async (_req, res) => {
     const headers = response.data.values?.[0] || [];
     return success(res, { headers }, 'تم الاتصال بـ Google Sheets بنجاح');
   } catch (err) {
-    return error(res, `فشل الاتصال بـ Google Sheets: ${err.message}`, 502);
+    const friendlyError = credentials ? await mapGoogleSheetsError(err, credentials) : err;
+    return error(res, `فشل الاتصال بـ Google Sheets: ${friendlyError.message}`, 502);
   }
 };
 
@@ -264,7 +314,7 @@ const testWebhook = async (_req, res) => {
   const placeholder = 'REPLACE_WITH_YOUR_SECRET_TOKEN';
 
   if (!secret || secret.trim() === placeholder) {
-    return error(res, 'يرجى تعيين رمز Webhook سري حقيقي أولاً', 400);
+    return error(res, 'يرجى تعيين رمز Webhook سري حقيقي أولًا', 400);
   }
 
   const baseUrl = `http://localhost:${process.env.PORT || 4000}`;

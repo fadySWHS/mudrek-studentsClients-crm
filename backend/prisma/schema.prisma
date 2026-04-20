@@ -28,6 +28,7 @@ model User {
   releaseRequests LeadReleaseRequest[] @relation("LeadReleaseRequester")
   reviewedReleaseRequests LeadReleaseRequest[] @relation("LeadReleaseReviewer")
   uploadedLeadCallRecords LeadCallRecord[] @relation("LeadCallRecordUploader")
+  leadAiConversations LeadAiConversation[]
   voiceJourneys   VoicePracticeJourney[]
 
   @@map("users")
@@ -55,6 +56,7 @@ model Lead {
   reminders    Reminder[]
   releaseRequests LeadReleaseRequest[]
   callRecords LeadCallRecord[]
+  aiConversations LeadAiConversation[]
 
   @@map("leads")
 }
@@ -157,6 +159,34 @@ model SyncLog {
   syncedAt  DateTime @default(now())
 
   @@map("sync_logs")
+}
+
+model LeadAiConversation {
+  id        String          @id @default(cuid())
+  leadId    String
+  lead      Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  messages  LeadAiMessage[]
+
+  @@unique([leadId, userId])
+  @@index([userId, updatedAt])
+  @@map("lead_ai_conversations")
+}
+
+model LeadAiMessage {
+  id             String            @id @default(cuid())
+  conversationId String
+  conversation   LeadAiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           LeadAiMessageRole
+  content        String            @db.Text
+  createdAt      DateTime          @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("lead_ai_messages")
 }
 
 // Key-value store for admin-configurable system settings
@@ -262,4 +292,9 @@ enum VoicePracticeCallStatus {
   IN_PROGRESS
   COMPLETED
   FAILED
+}
+
+enum LeadAiMessageRole {
+  USER
+  ASSISTANT
 }

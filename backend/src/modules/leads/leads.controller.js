@@ -331,6 +331,8 @@ const create = async (req, res) => {
     data: { leadId: lead.id, actorId: req.user.id, actionType: 'CREATED', toValue: 'AVAILABLE' },
   });
 
+  notificationService.notifyLeadCreated(lead, req.user, 'manual').catch(() => {});
+
   return success(res, lead, 'تم إنشاء العميل بنجاح', 201);
 };
 
@@ -368,6 +370,8 @@ const createFromText = async (req, res) => {
     await prisma.leadHistory.create({
       data: { leadId: lead.id, actorId: req.user.id, actionType: 'CREATED', toValue: 'AVAILABLE' },
     });
+
+    notificationService.notifyLeadCreated(lead, req.user, 'free-text').catch(() => {});
 
     return success(res, lead, 'تم إنشاء العميل من النص الحر بنجاح', 201);
   } catch (err) {
@@ -445,6 +449,10 @@ const update = async (req, res) => {
         toValue: lead.status,
       },
     });
+
+    if (lead.status === 'CLOSED_WON' || lead.status === 'CLOSED_LOST') {
+      notificationService.notifyLeadClosed(lead, req.user).catch(() => {});
+    }
   }
 
   if (lead.assignedToId !== existing.assignedToId) {

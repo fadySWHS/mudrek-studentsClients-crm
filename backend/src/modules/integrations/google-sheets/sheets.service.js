@@ -1,20 +1,20 @@
-const { google } = require('googleapis');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const logger = require('../../../utils/logger');
 const { getSetting } = require('../../../utils/getSetting');
+const {
+  buildGoogleSheetsClient,
+  mapGoogleSheetsError,
+  parseGoogleServiceAccountJson,
+} = require('../../../utils/googleSheetsAuth');
 
 const prisma = new PrismaClient();
 
 const getSheetClient = async () => {
   const saJson = await getSetting('GOOGLE_SERVICE_ACCOUNT_JSON');
-  if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON غير مهيّأ. أضفه من الإعدادات.');
-  const credentials = JSON.parse(saJson);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
-  return google.sheets({ version: 'v4', auth });
+  const credentials = parseGoogleServiceAccountJson(saJson);
+  const sheets = buildGoogleSheetsClient(credentials);
+  return { sheets, credentials };
 };
 
 /**
@@ -23,19 +23,25 @@ const getSheetClient = async () => {
  */
 const syncStudents = async () => {
   const sheetId = await getSetting('GOOGLE_SHEET_ID');
-  if (!sheetId) throw new Error('GOOGLE_SHEET_ID غير مهيّأ. أضفه من الإعدادات.');
+  if (!sheetId) throw new Error('GOOGLE_SHEET_ID غير مهيأ. أضفه من الإعدادات.');
 
   const defaultUserPass = await getSetting('DEFAULT_STUDENT_PASSWORD') || 'Mudrek@2024';
   const hashedDefaultPass = await bcrypt.hash(defaultUserPass, 10);
 
-  const sheets = await getSheetClient();
-  const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
-  const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
+  const { sheets, credentials } = await getSheetClient();
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: `${sheetTitle}!A2:Q`,
-  });
+  let response;
+  try {
+    const sheetMetadata = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+    const sheetTitle = sheetMetadata.data.sheets[0].properties.title;
+
+    response = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${sheetTitle}!A2:Q`,
+    });
+  } catch (err) {
+    throw await mapGoogleSheetsError(err, credentials);
+  }
 
   const rows = response.data.values || [];
   const results = { created: 0, updated: 0, disabled: 0, errors: [] };
@@ -61,7 +67,7 @@ const syncStudents = async () => {
         ? await prisma.user.findFirst({ where: { sourceStudentId: studentId } })
         : null;
 
-      // Fall back to email lookup for records that predate sourceStudentId tracking
+      // Fall back to email lookup for records that predate sourceStudentId tracking.
       if (!existing) {
         existing = await prisma.user.findUnique({ where: { email } });
       }

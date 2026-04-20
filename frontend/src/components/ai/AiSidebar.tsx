@@ -1,111 +1,184 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAi } from '@/context/AiContext';
-import { X, Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
+import { aiService, LeadAssistantMessage } from '@/services/ai';
+import { X, Send, Bot, User, Loader2, Sparkles, FileText, MessageSquareText, Repeat, Target, Wallet, ClipboardList } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { getToken } from '@/utils/auth';
+import toast from 'react-hot-toast';
 
-interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+interface Message extends LeadAssistantMessage {}
+
+interface StarterAction {
+  id: string;
+  title: string;
+  description: string;
+  prompt: string;
+  icon: typeof FileText;
 }
 
+const makeTempId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 export default function AiSidebar() {
-  const { isOpen, setIsOpen, leadContext, initialPrompt, setInitialPrompt } = useAi();
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'مرحباً! كيف يمكنني مساعدتك اليوم في تحسين مبيعاتك؟' }
-  ]);
+  const { isOpen, setIsOpen, leadContext, draftPrompt, setDraftPrompt } = useAi();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  const starterActions = useMemo<StarterAction[]>(() => {
+    const serviceHint = leadContext?.service || 'الخدمة المناسبة';
+    const clientName = leadContext?.name || 'هذا العميل';
+
+    return [
+      {
+        id: 'proposal',
+        title: 'إنشاء عرض عمل',
+        description: 'صياغة عرض مختصر ومقنع جاهز للإرسال.',
+        prompt: `أنشئ عرض عمل مختصرًا ومقنعًا للعميل ${clientName} بناءً على بياناته الحالية، مع هيكل واضح، قيمة مقترحة، وخطوة تالية مناسبة.`,
+        icon: FileText,
+      },
+      {
+        id: 'outreach',
+        title: 'كتابة رسالة تواصل',
+        description: 'رسالة واتساب أو تواصل أولي بأسلوب مهني.',
+        prompt: `اكتب رسالة تواصل أولى قصيرة ومهنية لهذا العميل ${clientName} للترويج لخدمة ${serviceHint}، وتكون مناسبة للإرسال عبر واتساب.`,
+        icon: MessageSquareText,
+      },
+      {
+        id: 'follow-up',
+        title: 'رسالة متابعة',
+        description: 'متابعة ذكية إذا لم يرد العميل بعد.',
+        prompt: `اكتب 3 صيغ متابعة ذكية وقصيرة للعميل ${clientName} إذا لم يرد بعد، مع تنويع بسيط بين الرسمية والودودة والمباشرة.`,
+        icon: Repeat,
+      },
+      {
+        id: 'objection',
+        title: 'رد على اعتراض السعر',
+        description: 'رد عملي ومقنع بدون مبالغة.',
+        prompt: `اكتب ردًا مقنعًا ومهنيًا على اعتراض السعر للعميل ${clientName}، مع الحفاظ على قيمة الخدمة وعدم الظهور بمظهر الدفاع.`,
+        icon: Wallet,
+      },
+      {
+        id: 'discovery',
+        title: 'أسئلة اكتشاف',
+        description: 'أسئلة ذكية للمكالمة القادمة مع العميل.',
+        prompt: `جهز لي قائمة بأسئلة اكتشاف ذكية ومباشرة للمكالمة القادمة مع العميل ${clientName} حتى أفهم احتياجه الحقيقي، الميزانية، التوقيت، وصاحب القرار.`,
+        icon: ClipboardList,
+      },
+      {
+        id: 'closing',
+        title: 'خطة إغلاق',
+        description: 'أفضل زاوية بيع وخطوات الإغلاق التالية.',
+        prompt: `حلل وضع العميل ${clientName} واقترح أفضل زاوية بيع وخطة إغلاق عملية من 3 إلى 5 خطوات بناءً على بياناته الحالية.`,
+        icon: Target,
+      },
+    ];
+  }, [leadContext]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [messages, isLoading, isLoadingHistory]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Handle Initial Magic Prompts from anywhere in the app
-  useEffect(() => {
-    if (isOpen && initialPrompt) {
-      handleSubmit(initialPrompt);
-      setInitialPrompt(''); // Clear it so it doesn't trigger again
+    if (isOpen && draftPrompt) {
+      setInput(draftPrompt);
+      setDraftPrompt('');
     }
-  }, [isOpen, initialPrompt]);
+  }, [isOpen, draftPrompt, setDraftPrompt]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!leadContext?.id) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadConversation = async () => {
+      setIsLoadingHistory(true);
+      setMessages([]);
+      try {
+        const conversation = await aiService.getLeadConversation(leadContext.id);
+        if (!cancelled) {
+          setMessages(conversation.messages);
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          toast.error(err.message || 'فشل تحميل محادثة العميل');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
+
+    loadConversation();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, leadContext?.id]);
 
   const handleSubmit = async (textToSubmit: string = input) => {
-    if (!textToSubmit.trim() || isLoading) return;
+    const normalizedMessage = textToSubmit.trim();
+    if (!normalizedMessage || isLoading || !leadContext?.id) return;
 
-    const userMessage: Message = { role: 'user', content: textToSubmit.trim() };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const userMessage: Message = {
+      id: makeTempId('user'),
+      role: 'user',
+      content: normalizedMessage,
+      createdAt: new Date().toISOString(),
+    };
+
+    const assistantPlaceholderId = makeTempId('assistant');
+    const assistantPlaceholder: Message = {
+      id: assistantPlaceholderId,
+      role: 'assistant',
+      content: '',
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const token = getToken();
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      
-      const response = await fetch(`${apiUrl}/ai/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+      const finalReply = await aiService.streamLeadConversation({
+        leadId: leadContext.id,
+        message: normalizedMessage,
+        model: 'openai/gpt-4o-mini',
+        onText: (streamedText) => {
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantPlaceholderId
+                ? { ...message, content: streamedText }
+                : message
+            )
+          );
         },
-        body: JSON.stringify({
-          messages: newMessages.filter(m => m.role !== 'system'), // exclude system msg if any from history
-          leadContext,
-          model: 'openai/gpt-4o-mini' // using an efficient fast model
-        })
       });
 
-      if (!response.ok) {
-        throw new Error('فشل الاتصال بالمساعد الذكي');
+      if (!finalReply.trim()) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantPlaceholderId
+              ? { ...message, content: 'لم يصل رد واضح من المساعد. جرّب إعادة الصياغة أو اختر إجراءً محددًا.' }
+              : message
+          )
+        );
       }
-
-      // Handle server-sent events stream
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-      
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      let assistantReply = '';
-      if (reader) {
-        let done = false;
-        while (!done) {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
-          if (value) {
-            const chunkText = decoder.decode(value, { stream: true });
-            const lines = chunkText.split('\n').filter(line => line.trim().startsWith('data: '));
-            
-            for (const line of lines) {
-              const dataStr = line.replace('data: ', '').trim();
-              if (dataStr === '[DONE]') continue;
-              
-              try {
-                const parsed = JSON.parse(dataStr);
-                if (parsed.text) {
-                  assistantReply += parsed.text;
-                  setMessages(prev => {
-                    const updated = [...prev];
-                    updated[updated.length - 1].content = assistantReply;
-                    return updated;
-                  });
-                }
-              } catch (e) {}
-            }
-          }
-        }
-      }
-
-    } catch (e: any) {
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: `❌ حدث خطأ: ${e.message}` }
-      ]);
+    } catch (err: any) {
+      const fallbackMessage = err.message || 'تعذر إكمال الرد هذه المرة.';
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantPlaceholderId
+            ? { ...message, content: `❌ ${fallbackMessage}` }
+            : message
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -115,91 +188,191 @@ export default function AiSidebar() {
 
   return (
     <>
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+      <div
+        className="fixed inset-0 z-40 bg-black/50 md:hidden"
         onClick={() => setIsOpen(false)}
       />
-      <div className={cn(
-        "fixed top-0 left-0 bottom-0 w-[95%] sm:w-[400px] bg-white border-r border-gray-200 shadow-2xl z-50 flex flex-col transform transition-transform duration-300",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-surface">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <Sparkles className="w-5 h-5" />
+      <div
+        className={cn(
+          'fixed top-0 left-0 bottom-0 z-50 flex w-[95%] transform flex-col border-r border-gray-200 bg-white shadow-2xl transition-transform duration-300 sm:w-[430px]',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="border-b border-gray-100 bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="leading-tight font-bold text-gray-900">Client AI Assistant</h3>
+                {leadContext ? (
+                  <p className="text-xs font-medium text-primary">
+                    {leadContext.name}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500">Open from a client page</p>
+                )}
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-gray-900 leading-tight">Sales Copilot</h3>
-              {leadContext && (
-                <p className="text-xs text-primary font-medium">سياق: {leadContext.name}</p>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {leadContext && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {leadContext.service && (
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] text-gray-600 shadow-sm">
+                  الخدمة: {leadContext.service}
+                </span>
+              )}
+              {leadContext.budget && (
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] text-gray-600 shadow-sm">
+                  الميزانية: {leadContext.budget}
+                </span>
+              )}
+              {leadContext.status && (
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] text-gray-600 shadow-sm">
+                  الحالة: {leadContext.status}
+                </span>
               )}
             </div>
-          </div>
-          <button 
-            onClick={() => setIsOpen(false)}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          )}
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg, i) => (
-            <div key={i} className={cn("flex gap-3 max-w-[85%]", msg.role === 'user' ? "mr-auto flex-row-reverse" : "ml-auto")}>
-              <div className={cn("w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center", 
-                msg.role === 'user' ? "bg-primary text-white" : "bg-gray-100 text-gray-600"
-              )}>
-                {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-              </div>
-              <div className={cn("p-3 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed",
-                msg.role === 'user' ? "bg-primary text-white rounded-tr-sm" : "bg-gray-50 text-gray-800 rounded-tl-sm border border-gray-100"
-              )}>
-                {msg.content}
+        <div className="flex-1 overflow-y-auto p-4">
+          {isLoadingHistory ? (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 text-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">جاري تحميل محادثة العميل</p>
+                <p className="mt-1 text-xs text-gray-500">سيتم استرجاع آخر الرسائل المحفوظة لهذا العميل.</p>
               </div>
             </div>
-          ))}
-          {isLoading && (
-            <div className="flex gap-3 max-w-[85%] ml-auto">
-              <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center">
-                <Bot className="w-4 h-4" />
+          ) : messages.length === 0 ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-primary/10 bg-primary/[0.04] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-primary shadow-sm">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">ابدأ بإجراء مفيد بدل رسالة فارغة</p>
+                    <p className="mt-1 text-xs leading-6 text-gray-600">
+                      المحادثة لهذا العميل سيتم حفظها، ويمكنك البدء مباشرة من أحد الاقتراحات التالية.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="p-3 bg-gray-50 rounded-2xl rounded-tl-sm border border-gray-100 flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-xs text-gray-500">يفكر...</span>
+
+              <div className="grid gap-3">
+                {starterActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={() => handleSubmit(action.prompt)}
+                      disabled={isLoading || !leadContext?.id}
+                      className="group rounded-2xl border border-gray-200 bg-white p-4 text-right transition-all hover:border-primary/30 hover:bg-primary/[0.03]"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-surface text-primary transition-colors group-hover:bg-white">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{action.title}</p>
+                          <p className="mt-1 text-xs leading-6 text-gray-500">{action.description}</p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    'flex max-w-[88%] gap-3',
+                    message.role === 'user' ? 'mr-auto flex-row-reverse' : 'ml-auto'
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full',
+                      message.role === 'user' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
+                    )}
+                  >
+                    {message.role === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  </div>
+                  <div
+                    className={cn(
+                      'rounded-2xl p-3 text-sm leading-relaxed whitespace-pre-wrap',
+                      message.role === 'user'
+                        ? 'rounded-tr-sm bg-primary text-white'
+                        : 'rounded-tl-sm border border-gray-100 bg-gray-50 text-gray-800'
+                    )}
+                  >
+                    {message.content}
+                  </div>
+                </div>
+              ))}
+
+              {isLoading && (
+                <div className="ml-auto flex max-w-[88%] gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                    <Bot className="h-4 w-4" />
+                  </div>
+                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-gray-100 bg-gray-50 p-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-xs text-gray-500">يكتب الرد...</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
-        <div className="p-4 border-t border-gray-100 bg-white">
-          <div className="flex items-end gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-200 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-            <textarea
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm max-h-32 min-h-[44px] resize-none py-3 px-3"
-              placeholder="اسألني عن عرض، أو تدرب على الرد..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit();
+        <div className="border-t border-gray-100 bg-white p-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-1.5 transition-all focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20">
+            <div className="flex items-end gap-2">
+              <textarea
+                className="min-h-[44px] max-h-32 flex-1 resize-none border-none bg-transparent px-3 py-3 text-sm focus:ring-0"
+                placeholder={
+                  leadContext
+                    ? 'اكتب طلبك هنا أو اختر أحد الاقتراحات بالأعلى...'
+                    : 'افتح المساعد من داخل صفحة عميل أولًا'
                 }
-              }}
-              rows={1}
-            />
-            <button
-              onClick={() => handleSubmit()}
-              disabled={!input.trim() || isLoading}
-              className="p-3 bg-primary text-white rounded-lg disabled:opacity-50 hover:bg-primary-dark transition-colors flex-shrink-0"
-            >
-              <Send className="w-4 h-4" />
-            </button>
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                rows={1}
+                disabled={!leadContext?.id || isLoadingHistory}
+              />
+              <button
+                onClick={() => handleSubmit()}
+                disabled={!input.trim() || isLoading || !leadContext?.id || isLoadingHistory}
+                className="flex-shrink-0 rounded-lg bg-primary p-3 text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <div className="mt-2 text-center text-[10px] text-gray-400">
-            الذكاء الاصطناعي يمكن أن يخطئ. تحقق من المعلومات.
+            يتم حفظ المحادثة لكل عميل على حدة. راجع الرد قبل الإرسال للعميل.
           </div>
         </div>
       </div>

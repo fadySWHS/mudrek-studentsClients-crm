@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { success, error } = require('../../utils/response');
 const { getSetting } = require('../../utils/getSetting');
+const notificationService = require('../notifications/notifications.service');
 
 const prisma = new PrismaClient();
 
@@ -60,6 +61,8 @@ const receiveMakeLead = async (req, res) => {
         },
       });
     }
+
+    notificationService.notifyLeadCreated(newLead, admin, 'webhook').catch(() => {});
 
     return success(res, newLead, 'تم استلام العميل وتسجيله بنجاح', 201);
   } catch (err) {

@@ -105,9 +105,14 @@ export default function LeadDetailPage() {
     ? {
         id: lead.id,
         name: lead.name,
+        phone: lead.phone,
         service: lead.service,
+        source: lead.source,
         budget: lead.budget,
+        status: lead.status,
         notes: lead.notes,
+        aiProfileSummary: lead.aiProfileSummary,
+        aiProfileInsights: lead.aiProfileInsights,
       }
     : undefined;
 
@@ -240,7 +245,7 @@ export default function LeadDetailPage() {
         {canEdit && (
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => openWithPrompt('اقترح رسالة أو عرضا جذابا لهذا العميل بناء على بياناته، وكيف يمكنني الإغلاق معه؟', aiLeadContext)}
+              onClick={() => openWithPrompt('', aiLeadContext)}
               className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
             >
               <Sparkles className="h-4 w-4" />
@@ -259,6 +264,7 @@ export default function LeadDetailPage() {
           <div className="card">
             <h3 className="mb-3 font-bold text-gray-900">بيانات العميل</h3>
             <dl className="space-y-2 text-sm">
+              <Row label="الهاتف" value={lead.phone} dir="ltr" />
               {lead.service && <Row label="الخدمة" value={lead.service} />}
               {lead.source && <Row label="المصدر" value={lead.source} />}
               {lead.budget && <Row label="الميزانية" value={lead.budget} />}
@@ -713,11 +719,24 @@ export default function LeadDetailPage() {
   );
 }
 
-function Row({ label, value, highlight }: { label: string; value: string; highlight?: 'error' }) {
+function Row({
+  label,
+  value,
+  highlight,
+  dir,
+}: {
+  label: string;
+  value: string;
+  highlight?: 'error';
+  dir?: 'ltr' | 'rtl';
+}) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-gray-500">{label}</dt>
-      <dd className={`text-left font-medium ${highlight === 'error' ? 'text-error' : 'text-gray-900'}`}>
+      <dd
+        dir={dir}
+        className={`text-left font-medium ${highlight === 'error' ? 'text-error' : 'text-gray-900'}`}
+      >
         {value}
       </dd>
     </div>

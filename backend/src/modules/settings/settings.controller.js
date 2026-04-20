@@ -5,6 +5,7 @@ const {
   DEFAULT_ACTIVE_LEAD_LIMIT_KEY,
   DEFAULT_BLOCK_AFTER_WON_KEY,
 } = require('../../utils/studentLeadPolicy');
+const { testTwochatConnection } = require('../integrations/twochat/twochat.service');
 const axios = require('axios');
 const { google } = require('googleapis');
 
@@ -42,9 +43,16 @@ const DEFAULT_SETTINGS = [
     value: '',
   },
   {
+    key: 'TWOCHAT_SOURCE_NUMBER',
+    label: 'رقم الإرسال في 2Chat',
+    description: 'اختياري. اكتب رقم WhatsApp المتصل بصيغة دولية مثل +201234567890 إذا كان لديك أكثر من رقم داخل 2Chat.',
+    sensitive: false,
+    value: '',
+  },
+  {
     key: 'WHATSAPP_GROUP_ID',
     label: 'معرّف مجموعة WhatsApp',
-    description: 'المجموعة التي ستستقبل إشعارات حجز العملاء.',
+    description: 'المجموعة التي ستستقبل الإشعارات. يمكن إدخال UUID الخاص بالمجموعة من 2Chat أو معرّف WhatsApp الذي ينتهي بـ @g.us.',
     sensitive: false,
     value: '',
   },
@@ -209,18 +217,14 @@ const testTwochat = async (_req, res) => {
   }
 
   try {
-    await axios.post(
-      'https://api.2chat.io/v1/messages/send',
-      { to: groupId, message: 'تم اختبار الاتصال من نظام مدرك بنجاح.' },
-      {
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        timeout: 10000,
-      }
+    const target = await testTwochatConnection('تم اختبار الاتصال من نظام مدرك بنجاح.');
+    return success(
+      res,
+      target,
+      'تم إرسال رسالة الاختبار إلى المجموعة بنجاح عبر 2Chat'
     );
-
-    return success(res, null, 'تم إرسال رسالة الاختبار إلى المجموعة بنجاح');
   } catch (err) {
-    return error(res, `فشل الاتصال بـ 2Chat: ${err.response?.data?.message || err.message}`, 502);
+    return error(res, err.message || 'فشل الاتصال بـ 2Chat', err.statusCode || 502);
   }
 };
 

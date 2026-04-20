@@ -15,6 +15,7 @@ const prisma = new PrismaClient();
 // env fallback map: DB key → config property
 const ENV_FALLBACK = {
   TWOCHAT_API_KEY:             () => config.twochatApiKey,
+  TWOCHAT_SOURCE_NUMBER:       () => config.twochatSourceNumber,
   WHATSAPP_GROUP_ID:           () => config.whatsappGroupId,
   GOOGLE_SHEET_ID:             () => config.googleSheetId,
   GOOGLE_SERVICE_ACCOUNT_JSON: () => config.googleServiceAccountJson,

@@ -12,6 +12,7 @@ module.exports = {
   replicateApiToken: process.env.REPLICATE_API_TOKEN,
   replicateSttModel: process.env.REPLICATE_STT_MODEL,
   twochatApiKey: process.env.TWOCHAT_API_KEY,
+  twochatSourceNumber: process.env.TWOCHAT_SOURCE_NUMBER,
   whatsappGroupId: process.env.WHATSAPP_GROUP_ID,
   appBaseUrl: process.env.APP_BASE_URL,
 };

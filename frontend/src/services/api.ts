@@ -24,10 +24,20 @@ api.interceptors.response.use(
     if (err.response?.data?.message) {
       message = err.response.data.message;
     } else if (err.response) {
-      const dataStr = typeof err.response.data === 'string' 
-        ? err.response.data.substring(0, 100).replace(/\n/g, ' ') 
-        : JSON.stringify(err.response.data).substring(0, 100);
-      message = `[${err.response.status}] إجابة غير متوقعة من الخادم: ${dataStr}`;
+      const rawData = typeof err.response.data === 'string'
+        ? err.response.data
+        : JSON.stringify(err.response.data);
+      const isHtmlResponse =
+        String(err.response.headers?.['content-type'] || '').includes('text/html') ||
+        /^\s*<!DOCTYPE html/i.test(rawData) ||
+        /^\s*<html/i.test(rawData);
+
+      if (isHtmlResponse) {
+        message = `[${err.response.status}] الخادم أعاد صفحة HTML غير متوقعة بدل استجابة التطبيق`;
+      } else {
+        const dataStr = rawData.substring(0, 140).replace(/\n/g, ' ');
+        message = `[${err.response.status}] إجابة غير متوقعة من الخادم: ${dataStr}`;
+      }
     } else if (err.request) {
       message = `تعذر الوصول للخادم أو لا توجد استجابة: ${err.message}`;
     } else {

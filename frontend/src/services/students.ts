@@ -5,6 +5,7 @@ export interface Student {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   role: 'ADMIN' | 'STUDENT';
   active: boolean;
   sourceStudentId?: string;
@@ -35,6 +36,7 @@ export const studentsService = {
   create: async (data: {
     name: string;
     email: string;
+    phone?: string | null;
     password: string;
     role?: string;
     leadReservationLimitOverride?: number | null;

@@ -26,10 +26,30 @@ const parseNullableBooleanOverride = (value) => {
   return { error: 'قيمة منع أخذ عملاء جدد بعد الصفقة الناجحة غير صالحة' };
 };
 
+const parseNullableWhatsAppNumber = (value) => {
+  if (value === undefined) return undefined; // omit on updates when not provided
+  if (value === null || value === '') return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  if (/[a-zA-Z]/.test(trimmed)) {
+    return { error: 'رقم WhatsApp غير صالح' };
+  }
+
+  const digits = trimmed.replace(/[^\d]/g, '');
+  if (digits.length < 8) {
+    return { error: 'رقم WhatsApp غير صالح' };
+  }
+
+  return `+${digits}`;
+};
+
 const baseUserSelect = {
   id: true,
   name: true,
   email: true,
+  phone: true,
   role: true,
   active: true,
   sourceStudentId: true,
@@ -60,6 +80,7 @@ const getAll = async (req, res) => {
     where.OR = [
       { name: { contains: search.trim(), mode: 'insensitive' } },
       { email: { contains: search.trim(), mode: 'insensitive' } },
+      { phone: { contains: search.trim(), mode: 'insensitive' } },
     ];
   }
 
@@ -96,6 +117,7 @@ const create = async (req, res) => {
   const {
     name,
     email,
+    phone,
     password,
     role,
     leadReservationLimitOverride,
@@ -116,11 +138,15 @@ const create = async (req, res) => {
   const normalizedBlockOverride = parseNullableBooleanOverride(blockNewLeadsAfterWonOverride);
   if (normalizedBlockOverride?.error) return error(res, normalizedBlockOverride.error, 400);
 
+  const normalizedPhone = parseNullableWhatsAppNumber(phone);
+  if (normalizedPhone?.error) return error(res, normalizedPhone.error, 400);
+
   const hashed = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
       name,
       email,
+      phone: normalizedPhone,
       password: hashed,
       role: nextRole,
       leadReservationLimitOverride: nextRole === 'STUDENT' ? normalizedLimitOverride : null,
@@ -136,6 +162,7 @@ const update = async (req, res) => {
   const {
     name,
     email,
+    phone,
     role,
     active,
     password,
@@ -158,9 +185,13 @@ const update = async (req, res) => {
   const normalizedBlockOverride = parseNullableBooleanOverride(blockNewLeadsAfterWonOverride);
   if (normalizedBlockOverride?.error) return error(res, normalizedBlockOverride.error, 400);
 
+  const normalizedPhone = parseNullableWhatsAppNumber(phone);
+  if (normalizedPhone?.error) return error(res, normalizedPhone.error, 400);
+
   const data = {
     name,
     email,
+    phone: normalizedPhone,
     role,
     active,
     leadReservationLimitOverride: nextRole === 'STUDENT' ? normalizedLimitOverride : null,

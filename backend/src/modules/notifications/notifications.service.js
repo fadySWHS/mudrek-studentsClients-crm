@@ -1,4 +1,4 @@
-const { sendWhatsAppMessage } = require('../integrations/twochat/twochat.service');
+const { sendWhatsAppMessage, sendWhatsAppDirectMessage } = require('../integrations/twochat/twochat.service');
 const { getSetting } = require('../../utils/getSetting');
 const logger = require('../../utils/logger');
 
@@ -71,6 +71,16 @@ const notifyOverdueReminder = async (reminder, lead, student) => {
     const enabled = await isWhatsAppNotificationEnabled('WHATSAPP_NOTIFY_REMINDER_OVERDUE', false);
     if (!enabled) return;
 
+    const targetNumber = String(student?.phone || '').trim();
+    if (!targetNumber) {
+      logger.warn('Skipping overdue reminder WhatsApp DM (missing user phone)', {
+        reminderId: reminder?.id,
+        leadId: lead?.id,
+        userId: student?.id,
+      });
+      return;
+    }
+
     const message =
       `⚠️ *تذكير متأخر*\n\n` +
       `👤 العميل: ${lead.name}\n` +
@@ -78,7 +88,7 @@ const notifyOverdueReminder = async (reminder, lead, student) => {
       `📝 الملاحظة: ${reminder.note || 'لا يوجد'}\n` +
       `📅 كان مستحق: ${new Date(reminder.dueAt).toLocaleString('ar-EG')}`;
 
-    await sendWhatsAppMessage(message);
+    await sendWhatsAppDirectMessage(targetNumber, message);
   } catch (err) {
     logger.error('Failed to send overdue reminder notification', { error: err.message });
   }

@@ -91,7 +91,7 @@ const DEFAULT_SETTINGS = [
   {
     key: 'WHATSAPP_NOTIFY_REMINDER_OVERDUE',
     label: 'إشعار تذكير متأخر',
-    description: 'يرسل إشعاراً عندما يتحول تذكير إلى متأخر (OVERDUE).',
+    description: 'يرسل رسالة WhatsApp مباشرة لصاحب التذكير على رقم WhatsApp الخاص به عندما يتحول التذكير إلى متأخر (OVERDUE).',
     sensitive: false,
     value: 'false',
   },

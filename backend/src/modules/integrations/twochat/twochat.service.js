@@ -83,6 +83,26 @@ const listGroups = async (client, sourceNumber) => {
 const findConfiguredGroup = (groups, configuredGroupId) =>
   groups.find((group) => group.uuid === configuredGroupId || group.wa_group_id === configuredGroupId);
 
+const resolveSourceNumber = async (client) => {
+  const configuredSource = normalizePhoneNumber(await getSetting('TWOCHAT_SOURCE_NUMBER'));
+  if (configuredSource) return configuredSource;
+
+  const connectedNumbers = await listConnectedNumbers(client);
+  if (connectedNumbers.length === 0) {
+    throw createTwochatError('لا يوجد رقم WhatsApp متصل بحساب 2Chat. اربط رقماً أولاً من لوحة 2Chat.', 400);
+  }
+
+  if (connectedNumbers.length === 1) {
+    return connectedNumbers[0].phone_number;
+  }
+
+  const available = connectedNumbers.map((entry) => entry.phone_number).join(', ');
+  throw createTwochatError(
+    `يوجد أكثر من رقم متصل على 2Chat: ${available}. حدّد رقم الإرسال في الإعداد TWOCHAT_SOURCE_NUMBER.`,
+    400
+  );
+};
+
 const resolveGroupUuid = async (client, sourceNumber, configuredGroupId) => {
   if (configuredGroupId.startsWith('WAG')) {
     return configuredGroupId;
@@ -169,6 +189,42 @@ const resolveMessageTarget = async () => {
   }
 };
 
+const sendWhatsAppDirectMessage = async (toNumber, message) => {
+  if (!message || !String(message).trim()) {
+    throw createTwochatError('لا يمكن إرسال رسالة فارغة إلى 2Chat.', 400);
+  }
+
+  const hasApiKey = String((await getSetting('TWOCHAT_API_KEY')) || '').trim();
+  if (!hasApiKey) {
+    logger.warn('2Chat not configured - skipping notification');
+    return;
+  }
+
+  const normalizedTo = normalizePhoneNumber(String(toNumber || ''));
+  if (!normalizedTo) {
+    throw createTwochatError('رقم WhatsApp غير صالح.', 400);
+  }
+
+  const client = getTwochatClient(hasApiKey);
+
+  let sourceNumber;
+  try {
+    sourceNumber = await resolveSourceNumber(client);
+  } catch (err) {
+    throw parseTwochatError(err, 'تعذر تهيئة الاتصال مع 2Chat');
+  }
+
+  try {
+    await client.post('/whatsapp/send-message', {
+      from_number: sourceNumber,
+      to_number: normalizedTo,
+      text: String(message).trim(),
+    });
+  } catch (err) {
+    throw parseTwochatError(err);
+  }
+};
+
 const sendWhatsAppMessage = async (message) => {
   if (!message || !String(message).trim()) {
     throw createTwochatError('لا يمكن إرسال رسالة فارغة إلى 2Chat.', 400);
@@ -201,4 +257,4 @@ const testTwochatConnection = async (message) => {
   return { sourceNumber, groupUuid };
 };
 
-module.exports = { sendWhatsAppMessage, testTwochatConnection };
+module.exports = { sendWhatsAppMessage, sendWhatsAppDirectMessage, testTwochatConnection };

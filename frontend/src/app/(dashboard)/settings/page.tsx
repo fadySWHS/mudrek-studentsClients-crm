@@ -175,6 +175,9 @@ export default function SettingsPage() {
                   />
                 ))}
               </div>
+              <p className="mt-2 text-xs text-gray-500">
+                ملاحظة: إشعارات التذكير المتأخر تُرسل مباشرة لصاحب التذكير على رقم WhatsApp الخاص به (من صفحة الطلاب)، وليس للمجموعة.
+              </p>
             </div>
           )}
         </SettingsCard>

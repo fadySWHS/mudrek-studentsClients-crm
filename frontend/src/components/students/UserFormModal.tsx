@@ -11,9 +11,22 @@ const leadLimitField = z
   .optional()
   .refine((value) => !value || /^\d+$/.test(value.trim()), 'أدخل رقماً صحيحاً أو اترك الحقل فارغاً');
 
+const phoneField = z
+  .string()
+  .optional()
+  .refine((value) => {
+    if (!value) return true;
+    const trimmed = value.trim();
+    if (!trimmed) return true;
+    if (/[a-zA-Z]/.test(trimmed)) return false;
+    const digits = trimmed.replace(/[^\d]/g, '');
+    return digits.length >= 8;
+  }, 'رقم WhatsApp غير صالح');
+
 const baseSchema = z.object({
   name: z.string().min(1, 'الاسم مطلوب'),
   email: z.string().email('بريد إلكتروني غير صالح'),
+  phone: phoneField,
   role: z.enum(['STUDENT', 'ADMIN']),
   leadReservationLimitOverride: leadLimitField,
   blockNewLeadsAfterWonOverride: z.enum(['default', 'true', 'false']).optional(),
@@ -59,6 +72,7 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
       ? {
           name: user.name,
           email: user.email,
+          phone: user.phone || '',
           password: '',
           role: user.role,
           leadReservationLimitOverride:
@@ -71,6 +85,7 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
           role: defaultRole,
           name: '',
           email: '',
+          phone: '',
           password: '',
           leadReservationLimitOverride: '',
           blockNewLeadsAfterWonOverride: 'default',
@@ -95,6 +110,7 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
         const payload: any = {
           name: data.name,
           email: data.email,
+          phone: data.phone || '',
           role: data.role,
           leadReservationLimitOverride: limitOverride,
           blockNewLeadsAfterWonOverride: blockOverride,
@@ -106,6 +122,7 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
         await studentsService.create({
           name: data.name,
           email: data.email,
+          phone: data.phone || '',
           password: data.password!,
           role: data.role,
           leadReservationLimitOverride: limitOverride,
@@ -142,6 +159,19 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
             <label className="label">البريد الإلكتروني *</label>
             <input {...register('email')} type="email" className="input-field" dir="ltr" placeholder="example@mudrek.com" />
             {errors.email && <p className="text-xs text-error mt-1">{errors.email.message}</p>}
+          </div>
+
+          <div>
+            <label className="label">رقم WhatsApp (للتذكيرات)</label>
+            <input
+              {...register('phone')}
+              className="input-field"
+              dir="ltr"
+              placeholder="+201234567890"
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            {errors.phone && <p className="text-xs text-error mt-1">{errors.phone.message}</p>}
           </div>
 
           <div>

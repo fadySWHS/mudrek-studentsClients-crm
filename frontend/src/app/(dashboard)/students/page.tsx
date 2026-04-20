@@ -252,6 +252,7 @@ export default function UsersPage() {
                       {u.id === currentUser?.id && <span className="mr-1 text-xs text-gray-400">(أنت)</span>}
                     </p>
                     <p className="text-xs text-gray-400 truncate" dir="ltr">{u.email}</p>
+                    {u.phone && <p className="text-xs text-gray-400 truncate" dir="ltr">{u.phone}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={cn('badge', u.role === 'ADMIN' ? 'bg-primary-light text-primary-dark' : 'bg-blue-50 text-blue-700')}>
@@ -292,6 +293,7 @@ export default function UsersPage() {
                   </th>
                   <th className="table-header">الاسم</th>
                   <th className="table-header">البريد الإلكتروني</th>
+                  <th className="table-header">رقم WhatsApp</th>
                   <th className="table-header">الدور</th>
                   <th className="table-header">الحالة</th>
                   <th className="table-header">تاريخ الإنشاء</th>
@@ -316,6 +318,7 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="table-cell text-gray-500 text-xs" dir="ltr">{u.email}</td>
+                    <td className="table-cell text-gray-500 text-xs" dir="ltr">{u.phone || '—'}</td>
                     <td className="table-cell">
                       <span className={cn('badge', u.role === 'ADMIN' ? 'bg-primary-light text-primary-dark' : 'bg-blue-50 text-blue-700')}>
                         {u.role === 'ADMIN' ? 'مدير' : 'طالب'}

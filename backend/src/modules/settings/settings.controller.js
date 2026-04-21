@@ -114,7 +114,7 @@ const DEFAULT_SETTINGS = [
     label: 'وجهة إشعار طلب إعادة العميل للمتاح',
     description: 'اختر مكان إرسال إشعار طلب إعادة العميل للمتاح: group للمجموعة أو admin لواتساب المدير.',
     sensitive: false,
-    value: 'admin',
+    value: 'group',
   },
   {
     key: 'WHATSAPP_NOTIFY_REMINDER_OVERDUE',

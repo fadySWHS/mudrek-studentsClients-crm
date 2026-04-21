@@ -98,7 +98,6 @@ const notifyLeadReleaseRequested = async (lead, student, studentNote) => {
     const destination = await sendWhatsAppNotification({
       message,
       destinationKey: 'WHATSAPP_DEST_LEAD_RELEASE_REQUESTED',
-      defaultDestination: 'admin',
       meta: { leadId: lead.id, studentId: student?.id },
     });
     logger.info('WhatsApp notification sent for lead release request', {

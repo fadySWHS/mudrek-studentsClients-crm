@@ -25,6 +25,38 @@ const isWhatsAppNotificationEnabled = async (eventKey, defaultEnabled = true) =>
 
 const safeName = (user) => user?.name || 'النظام';
 
+const parseWhatsAppDestination = (value, defaultValue = 'group') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'admin') return 'admin';
+  if (normalized === 'group') return 'group';
+  return defaultValue;
+};
+
+const sendWhatsAppNotification = async ({
+  message,
+  destinationKey,
+  defaultDestination = 'group',
+  meta,
+}) => {
+  const destination = destinationKey
+    ? parseWhatsAppDestination(await getSetting(destinationKey), defaultDestination)
+    : defaultDestination;
+
+  if (destination === 'admin') {
+    const adminNumber = String((await getSetting('WHATSAPP_ADMIN_NUMBER')) || '').trim();
+    if (!adminNumber) {
+      logger.warn('WhatsApp admin number missing - skipping notification', { destinationKey, ...meta });
+      return destination;
+    }
+
+    await sendWhatsAppDirectMessage(adminNumber, message);
+    return destination;
+  }
+
+  await sendWhatsAppMessage(message);
+  return destination;
+};
+
 const notifyLeadClaimed = async (lead, student) => {
   try {
     const enabled = await isWhatsAppNotificationEnabled('WHATSAPP_NOTIFY_LEAD_CLAIMED', true);
@@ -38,8 +70,12 @@ const notifyLeadClaimed = async (lead, student) => {
       `👨‍🎓 الطالب: ${student.name}\n` +
       `⏰ الوقت: ${new Date().toLocaleString('ar-EG')}`;
 
-    await sendWhatsAppMessage(message);
-    logger.info('WhatsApp notification sent for lead claim', { leadId: lead.id });
+    const destination = await sendWhatsAppNotification({
+      message,
+      destinationKey: 'WHATSAPP_DEST_LEAD_CLAIMED',
+      meta: { leadId: lead.id, studentId: student?.id },
+    });
+    logger.info('WhatsApp notification sent for lead claim', { leadId: lead.id, destination });
   } catch (err) {
     logger.error('Failed to send WhatsApp notification', { error: err.message });
   }
@@ -59,8 +95,17 @@ const notifyLeadReleaseRequested = async (lead, student, studentNote) => {
       `📝 ملاحظة الطالب: ${studentNote || 'لا توجد ملاحظة'}\n` +
       `⏰ الوقت: ${new Date().toLocaleString('ar-EG')}`;
 
-    await sendWhatsAppMessage(message);
-    logger.info('WhatsApp notification sent for lead release request', { leadId: lead.id, studentId: student.id });
+    const destination = await sendWhatsAppNotification({
+      message,
+      destinationKey: 'WHATSAPP_DEST_LEAD_RELEASE_REQUESTED',
+      defaultDestination: 'admin',
+      meta: { leadId: lead.id, studentId: student?.id },
+    });
+    logger.info('WhatsApp notification sent for lead release request', {
+      leadId: lead.id,
+      studentId: student.id,
+      destination,
+    });
   } catch (err) {
     logger.error('Failed to send lead release request notification', { error: err.message });
   }
@@ -111,7 +156,12 @@ const notifyLeadCreated = async (lead, actor, createdVia = '') => {
       `👮 بواسطة: ${safeName(actor)}\n` +
       `⏰ الوقت: ${new Date().toLocaleString('ar-EG')}`;
 
-    await sendWhatsAppMessage(message);
+    const destination = await sendWhatsAppNotification({
+      message,
+      destinationKey: 'WHATSAPP_DEST_LEAD_CREATED',
+      meta: { leadId: lead.id },
+    });
+    logger.info('WhatsApp notification sent for lead creation', { leadId: lead.id, destination });
   } catch (err) {
     logger.error('Failed to send lead created notification', { error: err.message });
   }
@@ -135,7 +185,12 @@ const notifyLeadClosed = async (lead, actor) => {
       `👮 بواسطة: ${safeName(actor)}\n` +
       `⏰ الوقت: ${new Date().toLocaleString('ar-EG')}`;
 
-    await sendWhatsAppMessage(message);
+    const destination = await sendWhatsAppNotification({
+      message,
+      destinationKey: isWon ? 'WHATSAPP_DEST_LEAD_CLOSED_WON' : 'WHATSAPP_DEST_LEAD_CLOSED_LOST',
+      meta: { leadId: lead.id },
+    });
+    logger.info('WhatsApp notification sent for lead close', { leadId: lead.id, destination, status: lead.status });
   } catch (err) {
     logger.error('Failed to send lead closed notification', { error: err.message });
   }

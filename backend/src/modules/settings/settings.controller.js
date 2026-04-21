@@ -5,7 +5,7 @@ const {
   DEFAULT_ACTIVE_LEAD_LIMIT_KEY,
   DEFAULT_BLOCK_AFTER_WON_KEY,
 } = require('../../utils/studentLeadPolicy');
-const { testTwochatConnection } = require('../integrations/twochat/twochat.service');
+const { testTwochatConnection, sendWhatsAppDirectMessage } = require('../integrations/twochat/twochat.service');
 const {
   buildGoogleSheetsClient,
   mapGoogleSheetsError,
@@ -61,9 +61,16 @@ const DEFAULT_SETTINGS = [
     value: '',
   },
   {
+    key: 'WHATSAPP_ADMIN_NUMBER',
+    label: 'رقم WhatsApp للمدير',
+    description: 'سيتم إرسال الإشعارات مباشرةً لهذا الرقم عند اختيار وجهة الإشعار: واتساب المدير. اكتب الرقم بصيغة دولية مثل +201234567890.',
+    sensitive: false,
+    value: '',
+  },
+  {
     key: 'WHATSAPP_NOTIFICATIONS_ENABLED',
     label: 'تفعيل إشعارات WhatsApp',
-    description: 'مفتاح رئيسي لتفعيل/إيقاف جميع إشعارات WhatsApp المرسلة إلى المجموعة.',
+    description: 'مفتاح رئيسي لتفعيل/إيقاف جميع إشعارات WhatsApp (سواء إلى المجموعة أو إلى واتساب المدير).',
     sensitive: false,
     value: 'true',
   },
@@ -75,6 +82,13 @@ const DEFAULT_SETTINGS = [
     value: 'true',
   },
   {
+    key: 'WHATSAPP_DEST_LEAD_CLAIMED',
+    label: 'وجهة إشعار أخذ العميل',
+    description: 'اختر مكان إرسال إشعار أخذ العميل: group للمجموعة أو admin لواتساب المدير.',
+    sensitive: false,
+    value: 'group',
+  },
+  {
     key: 'WHATSAPP_NOTIFY_LEAD_CREATED',
     label: 'إشعار عند إضافة عميل جديد',
     description: 'يرسل إشعاراً عند إنشاء عميل جديد (يدوي/نص حر/Webhook).',
@@ -82,11 +96,25 @@ const DEFAULT_SETTINGS = [
     value: 'true',
   },
   {
+    key: 'WHATSAPP_DEST_LEAD_CREATED',
+    label: 'وجهة إشعار إضافة عميل جديد',
+    description: 'اختر مكان إرسال إشعار إضافة عميل جديد: group للمجموعة أو admin لواتساب المدير.',
+    sensitive: false,
+    value: 'group',
+  },
+  {
     key: 'WHATSAPP_NOTIFY_LEAD_RELEASE_REQUESTED',
     label: 'إشعار طلب إعادة العميل للمتاح',
     description: 'يرسل إشعاراً عند إرسال طالب طلب مراجعة لإعادة العميل للمتاح.',
     sensitive: false,
     value: 'true',
+  },
+  {
+    key: 'WHATSAPP_DEST_LEAD_RELEASE_REQUESTED',
+    label: 'وجهة إشعار طلب إعادة العميل للمتاح',
+    description: 'اختر مكان إرسال إشعار طلب إعادة العميل للمتاح: group للمجموعة أو admin لواتساب المدير.',
+    sensitive: false,
+    value: 'admin',
   },
   {
     key: 'WHATSAPP_NOTIFY_REMINDER_OVERDUE',
@@ -103,11 +131,25 @@ const DEFAULT_SETTINGS = [
     value: 'true',
   },
   {
+    key: 'WHATSAPP_DEST_LEAD_CLOSED_WON',
+    label: 'وجهة إشعار الإغلاق الناجح',
+    description: 'اختر مكان إرسال إشعار الإغلاق الناجح: group للمجموعة أو admin لواتساب المدير.',
+    sensitive: false,
+    value: 'group',
+  },
+  {
     key: 'WHATSAPP_NOTIFY_LEAD_CLOSED_LOST',
     label: 'إشعار إغلاق - خاسر',
     description: 'يرسل إشعاراً عند إغلاق العميل كصفقة خاسرة.',
     sensitive: false,
     value: 'false',
+  },
+  {
+    key: 'WHATSAPP_DEST_LEAD_CLOSED_LOST',
+    label: 'وجهة إشعار الإغلاق الخاسر',
+    description: 'اختر مكان إرسال إشعار الإغلاق الخاسر: group للمجموعة أو admin لواتساب المدير.',
+    sensitive: false,
+    value: 'group',
   },
   {
     key: 'GOOGLE_SHEET_ID',
@@ -264,18 +306,24 @@ const updateSetting = async (req, res) => {
 const testTwochat = async (_req, res) => {
   const apiKey = await getSetting('TWOCHAT_API_KEY');
   const groupId = await getSetting('WHATSAPP_GROUP_ID');
+  const adminNumber = await getSetting('WHATSAPP_ADMIN_NUMBER');
 
-  if (!apiKey || !groupId) {
-    return error(res, 'يرجى تعيين مفتاح 2Chat ومعرّف المجموعة أولًا', 400);
+  if (!apiKey) {
+    return error(res, 'يرجى تعيين مفتاح 2Chat أولًا', 400);
+  }
+
+  if (!groupId && !adminNumber) {
+    return error(res, 'يرجى تعيين معرّف المجموعة أو رقم WhatsApp للمدير أولًا', 400);
   }
 
   try {
-    const target = await testTwochatConnection('تم اختبار الاتصال من نظام مدرك بنجاح.');
-    return success(
-      res,
-      target,
-      'تم إرسال رسالة الاختبار إلى المجموعة بنجاح عبر 2Chat'
-    );
+    if (groupId) {
+      const target = await testTwochatConnection('تم اختبار الاتصال من نظام مدرك بنجاح.');
+      return success(res, target, 'تم إرسال رسالة الاختبار إلى المجموعة بنجاح عبر 2Chat');
+    }
+
+    await sendWhatsAppDirectMessage(adminNumber, 'تم اختبار الاتصال من نظام مدرك بنجاح.');
+    return success(res, null, 'تم إرسال رسالة الاختبار إلى واتساب المدير بنجاح عبر 2Chat');
   } catch (err) {
     return error(res, err.message || 'فشل الاتصال بـ 2Chat', err.statusCode || 502);
   }

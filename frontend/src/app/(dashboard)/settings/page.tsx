@@ -100,11 +100,16 @@ export default function SettingsPage() {
   };
 
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
-  const isWhatsAppNotifySetting = (key: string) =>
+  const isWhatsAppToggleSetting = (key: string) =>
     key === 'WHATSAPP_NOTIFICATIONS_ENABLED' || key.startsWith('WHATSAPP_NOTIFY_');
-  const twochatCoreSettings = twochatSettings.filter((s) => !isWhatsAppNotifySetting(s.key));
+  const isWhatsAppDestinationSetting = (key: string) => key.startsWith('WHATSAPP_DEST_');
+
+  const whatsappDestinationSettings = twochatSettings.filter((s) => isWhatsAppDestinationSetting(s.key));
+  const destinationByKey = new Map(whatsappDestinationSettings.map((s) => [s.key, s]));
+
+  const twochatCoreSettings = twochatSettings.filter((s) => !isWhatsAppToggleSetting(s.key) && !isWhatsAppDestinationSetting(s.key));
   const whatsappNotifySettings = twochatSettings
-    .filter((s) => isWhatsAppNotifySetting(s.key))
+    .filter((s) => isWhatsAppToggleSetting(s.key))
     .sort((a, b) => {
       if (a.key === 'WHATSAPP_NOTIFICATIONS_ENABLED') return -1;
       if (b.key === 'WHATSAPP_NOTIFICATIONS_ENABLED') return 1;
@@ -130,6 +135,19 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSelect = async (key: string, next: string) => {
+    setSaving((p) => ({ ...p, [key]: true }));
+    try {
+      await settingsService.update(key, next);
+      toast.success('تم حفظ الإعداد');
+      fetchSettings({ silent: true });
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSaving((p) => ({ ...p, [key]: false }));
+    }
+  };
+
   const webhookUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:4000'}/api/webhooks/make`;
 
   if (loading) return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
@@ -143,7 +161,7 @@ export default function SettingsPage() {
         <SettingsCard
           icon="💬"
           title="2Chat — WhatsApp"
-          subtitle="إشعارات المجموعة عند حجز العملاء"
+          subtitle="إشعارات WhatsApp (المجموعة أو واتساب المدير)"
           testLabel="اختبار الإرسال"
           onTest={handleTestTwochat}
           testing={testing === 'twochat'}
@@ -165,17 +183,33 @@ export default function SettingsPage() {
             <div className="pt-4 mt-4 border-t border-gray-100">
               <h3 className="text-sm font-bold text-gray-900 mb-2">إشعارات WhatsApp</h3>
               <div className="space-y-3">
-                {whatsappNotifySettings.map((s) => (
-                  <SettingToggleRow
-                    key={s.key}
-                    setting={s}
-                    checked={parseBool(s.value)}
-                    saving={saving[s.key] ?? false}
-                    onToggle={(next) => handleToggle(s.key, next)}
-                  />
-                ))}
+                {whatsappNotifySettings.map((s) => {
+                  const destKey = s.key.startsWith('WHATSAPP_NOTIFY_') ? s.key.replace('WHATSAPP_NOTIFY_', 'WHATSAPP_DEST_') : '';
+                  const destSetting = destKey ? destinationByKey.get(destKey) : undefined;
+                  const canConfigureDestination = !!destSetting && s.key !== 'WHATSAPP_NOTIFY_REMINDER_OVERDUE';
+
+                  return (
+                    <div key={s.key} className="space-y-2">
+                      <SettingToggleRow
+                        setting={s}
+                        checked={parseBool(s.value)}
+                        saving={saving[s.key] ?? false}
+                        onToggle={(next) => handleToggle(s.key, next)}
+                      />
+                      {canConfigureDestination && (
+                        <SettingSelectRow
+                          setting={destSetting!}
+                          value={(destSetting!.value || 'group').trim() || 'group'}
+                          saving={saving[destSetting!.key] ?? false}
+                          onChange={(next) => handleSelect(destSetting!.key, next)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <p className="mt-2 text-xs text-gray-500">
+                يمكنك تحديد وجهة كل إشعار: المجموعة أو واتساب المدير (تأكد من تعيين رقم WhatsApp للمدير).
                 ملاحظة: إشعارات التذكير المتأخر تُرسل مباشرة لصاحب التذكير على رقم WhatsApp الخاص به (من صفحة الطلاب)، وليس للمجموعة.
               </p>
             </div>
@@ -478,6 +512,43 @@ function SettingToggleRow({
           {checked ? 'مفعل' : 'متوقف'}
         </span>
         <ToggleSwitch checked={checked} disabled={saving} onChange={onToggle} />
+      </div>
+    </div>
+  );
+}
+
+function SettingSelectRow({
+  setting,
+  value,
+  saving,
+  onChange,
+}: {
+  setting: SystemSetting;
+  value: string;
+  saving: boolean;
+  onChange: (next: string) => void;
+}) {
+  const selected = String(value || '').trim().toLowerCase() === 'admin' ? 'admin' : 'group';
+
+  return (
+    <div className="bg-surface rounded-xl p-4 flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <label className="text-sm font-semibold text-gray-900">{setting.label}</label>
+        {setting.description && (
+          <p className="text-xs text-gray-400 mt-0.5">{setting.description}</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <select
+          value={selected}
+          disabled={saving}
+          onChange={(e) => onChange(e.target.value)}
+          className={cn('input-field py-2 px-3 text-sm min-w-[160px]', saving && 'opacity-60 cursor-not-allowed')}
+        >
+          <option value="group">المجموعة</option>
+          <option value="admin">واتساب المدير</option>
+        </select>
       </div>
     </div>
   );

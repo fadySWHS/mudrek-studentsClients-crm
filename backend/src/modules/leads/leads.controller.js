@@ -68,6 +68,56 @@ const normalizeArray = (value, maxItems = 5) =>
 
 const normalizePhone = (value) => normalizeText(value).replace(/(?!^\+)[^\d]/g, '');
 
+const canUserViewLeadContact = (user, lead) =>
+  user?.role !== 'STUDENT' || lead?.assignedToId === user?.id;
+
+const buildLeadSearchClauses = (search, { includePhone = false } = {}) => {
+  const clauses = [
+    { name: { contains: search, mode: 'insensitive' } },
+    { service: { contains: search, mode: 'insensitive' } },
+    { source: { contains: search, mode: 'insensitive' } },
+  ];
+
+  if (includePhone) {
+    clauses.push({ phone: { contains: search } });
+  }
+
+  return clauses;
+};
+
+const sanitizeLeadForUser = (lead, user, { redactDetails = false } = {}) => {
+  if (!lead) return lead;
+
+  if (canUserViewLeadContact(user, lead)) {
+    return {
+      ...lead,
+      contactInfoLocked: false,
+    };
+  }
+
+  const sanitizedLead = {
+    ...lead,
+    phone: null,
+    contactInfoLocked: true,
+  };
+
+  if (!redactDetails) {
+    return sanitizedLead;
+  }
+
+  return {
+    ...sanitizedLead,
+    notes: null,
+    aiProfileSummary: null,
+    aiProfileInsights: null,
+    comments: [],
+    history: [],
+    reminders: [],
+    releaseRequests: [],
+    callRecords: [],
+  };
+};
+
 const cleanupTempFile = (filePath) => {
   if (filePath && fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
@@ -158,30 +208,50 @@ const extractLeadDataFromText = async (rawText) => {
 const getStudentScopedWhere = (req) => {
   const filters = [];
   const { status, assignedTo, search } = req.query;
+  const trimmedSearch = search?.trim();
 
   if (req.user.role === 'STUDENT') {
     if (assignedTo) {
       filters.push({ assignedToId: req.user.id });
+      if (trimmedSearch) {
+        filters.push({
+          OR: buildLeadSearchClauses(trimmedSearch, { includePhone: true }),
+        });
+      }
     } else {
       filters.push({
         OR: [{ status: 'AVAILABLE' }, { assignedToId: req.user.id }],
       });
+
+      if (trimmedSearch) {
+        filters.push({
+          OR: [
+            {
+              assignedToId: req.user.id,
+              OR: buildLeadSearchClauses(trimmedSearch, { includePhone: true }),
+            },
+            {
+              status: 'AVAILABLE',
+              OR: buildLeadSearchClauses(trimmedSearch),
+            },
+          ],
+        });
+      }
     }
-  } else if (assignedTo) {
-    filters.push({ assignedToId: assignedTo });
+  } else {
+    if (assignedTo) {
+      filters.push({ assignedToId: assignedTo });
+    }
+
+    if (trimmedSearch) {
+      filters.push({
+        OR: buildLeadSearchClauses(trimmedSearch, { includePhone: true }),
+      });
+    }
   }
 
   if (status) {
     filters.push({ status });
-  }
-
-  if (search?.trim()) {
-    filters.push({
-      OR: [
-        { name: { contains: search.trim(), mode: 'insensitive' } },
-        { phone: { contains: search.trim() } },
-      ],
-    });
   }
 
   if (filters.length === 0) return {};
@@ -259,7 +329,12 @@ const getAll = async (req, res) => {
     prisma.lead.count({ where }),
   ]);
 
-  return success(res, { leads, total, page: parseInt(page, 10), limit: parseInt(limit, 10) });
+  return success(res, {
+    leads: leads.map((lead) => sanitizeLeadForUser(lead, req.user)),
+    total,
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  });
 };
 
 const getClaimPolicy = async (req, res) => {
@@ -318,7 +393,7 @@ const getOne = async (req, res) => {
     return error(res, 'غير مصرح بالوصول لهذا العميل', 403);
   }
 
-  return success(res, lead);
+  return success(res, sanitizeLeadForUser(lead, req.user, { redactDetails: true }));
 };
 
 const create = async (req, res) => {

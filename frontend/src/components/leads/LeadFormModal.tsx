@@ -45,7 +45,7 @@ export default function LeadFormModal({ lead, onClose, onSaved }: Props) {
     defaultValues: lead
       ? {
           name: lead.name,
-          phone: lead.phone,
+          phone: lead.phone || '',
           service: lead.service,
           source: lead.source,
           budget: lead.budget,

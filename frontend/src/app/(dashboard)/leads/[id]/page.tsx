@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAi } from '@/context/AiContext';
 import LeadStatusBadge from '@/components/shared/LeadStatusBadge';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { getLeadContactLabel, LOCKED_LEAD_CONTACT_HINT } from '@/utils/leadContact';
 import { leadStatusLabels } from '@/utils/leadStatus';
 import toast from 'react-hot-toast';
 import {
@@ -68,6 +69,7 @@ export default function LeadDetailPage() {
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
   const [selectedAudio, setSelectedAudio] = useState<File | null>(null);
   const [uploadingCallRecord, setUploadingCallRecord] = useState(false);
+  const [claimingLead, setClaimingLead] = useState(false);
 
   const fetchLead = async () => {
     try {
@@ -100,6 +102,9 @@ export default function LeadDetailPage() {
     () => pendingReleaseRequests.find((request) => request.studentId === user?.id) || null,
     [pendingReleaseRequests, user?.id]
   );
+  const isLockedLead = Boolean(lead?.contactInfoLocked);
+  const canClaimLockedLead =
+    !isAdmin && lead?.status === 'AVAILABLE' && lead?.assignedToId !== user?.id;
 
   const aiLeadContext = lead
     ? {
@@ -218,6 +223,21 @@ export default function LeadDetailPage() {
     }
   };
 
+  const handleClaimLead = async () => {
+    if (!lead || !canClaimLockedLead) return;
+
+    setClaimingLead(true);
+    try {
+      await leadsService.claim(id);
+      toast.success('تم حجز العميل بنجاح');
+      await fetchLead();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setClaimingLead(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center py-20"><LoadingSpinner size="lg" /></div>;
   }
@@ -240,7 +260,20 @@ export default function LeadDetailPage() {
             {lead.name}
             <LeadStatusBadge status={lead.status} />
           </h1>
-          <p className="text-sm text-gray-500" dir="ltr">{lead.phone}</p>
+          <p
+            className={`mt-1 flex items-center gap-2 text-sm ${
+              isLockedLead ? 'text-amber-700' : 'text-gray-500'
+            }`}
+            dir="ltr"
+          >
+            {isLockedLead ? <LockKeyhole className="h-4 w-4 flex-shrink-0" /> : null}
+            <span className={isLockedLead ? 'select-none blur-[2px]' : ''}>
+              {getLeadContactLabel(lead)}
+            </span>
+          </p>
+          {isLockedLead ? (
+            <p className="mt-1 text-xs text-amber-700">{LOCKED_LEAD_CONTACT_HINT}</p>
+          ) : null}
         </div>
         {canEdit && (
           <div className="flex flex-wrap gap-2">
@@ -257,14 +290,42 @@ export default function LeadDetailPage() {
             </button>
           </div>
         )}
+        {canClaimLockedLead ? (
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleClaimLead}
+              disabled={claimingLead}
+              className="btn-primary flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LockKeyhole className="h-4 w-4" />
+              {claimingLead ? 'جارٍ الحجز...' : 'احجز لإظهار التواصل'}
+            </button>
+          </div>
+        ) : null}
       </div>
+
+      {isLockedLead ? (
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <LockKeyhole className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">معلومات التواصل مخفية حتى يتم حجز العميل.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                يمكنك مراجعة البيانات العامة أولاً، ثم حجز العميل لإظهار رقم التواصل وسجل المتابعة.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-1">
           <div className="card">
             <h3 className="mb-3 font-bold text-gray-900">بيانات العميل</h3>
             <dl className="space-y-2 text-sm">
-              <Row label="الهاتف" value={lead.phone} dir="ltr" />
+              <Row label="الهاتف" value={getLeadContactLabel(lead)} dir="ltr" muted={isLockedLead} />
               {lead.service && <Row label="الخدمة" value={lead.service} />}
               {lead.source && <Row label="المصدر" value={lead.source} />}
               {lead.budget && <Row label="الميزانية" value={lead.budget} />}
@@ -277,6 +338,11 @@ export default function LeadDetailPage() {
                 </div>
               )}
             </dl>
+            {isLockedLead ? (
+              <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {LOCKED_LEAD_CONTACT_HINT}
+              </p>
+            ) : null}
           </div>
 
           {(lead.aiProfileSummary || lead.aiProfileInsights) && (
@@ -724,18 +790,26 @@ function Row({
   value,
   highlight,
   dir,
+  muted,
 }: {
   label: string;
   value: string;
   highlight?: 'error';
   dir?: 'ltr' | 'rtl';
+  muted?: boolean;
 }) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="text-gray-500">{label}</dt>
       <dd
         dir={dir}
-        className={`text-left font-medium ${highlight === 'error' ? 'text-error' : 'text-gray-900'}`}
+        className={`text-left font-medium ${
+          highlight === 'error'
+            ? 'text-error'
+            : muted
+              ? 'select-none text-amber-700 blur-[2px]'
+              : 'text-gray-900'
+        }`}
       >
         {value}
       </dd>

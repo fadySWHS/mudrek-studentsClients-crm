@@ -27,6 +27,7 @@ import {
   remindersService,
 } from '@/services/leads';
 import { DashboardStats, StudentPerformance, reportsService } from '@/services/reports';
+import { getLeadContactLabel } from '@/utils/leadContact';
 
 export default function DashboardPage() {
   const { isAdmin } = useAuth();
@@ -298,7 +299,7 @@ function StudentDashboard() {
               >
                 <div>
                   <p className="text-sm font-medium text-gray-900">{lead.name}</p>
-                  <p className="text-xs text-gray-400">{lead.phone}</p>
+                  <p className="text-xs text-gray-400">{getLeadContactLabel(lead)}</p>
                 </div>
                 <LeadStatusBadge status={lead.status} />
               </Link>

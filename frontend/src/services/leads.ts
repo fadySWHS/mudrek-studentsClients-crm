@@ -9,7 +9,8 @@ export type LeadReleaseRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export interface Lead {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
+  contactInfoLocked?: boolean;
   service?: string;
   source?: string;
   budget?: string;

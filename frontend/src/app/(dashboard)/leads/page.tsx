@@ -31,6 +31,7 @@ import {
   leadsService,
 } from '@/services/leads';
 import { Student, studentsService } from '@/services/students';
+import { getLeadContactLabel, LOCKED_LEAD_CONTACT_HINT } from '@/utils/leadContact';
 import { leadStatusLabels } from '@/utils/leadStatus';
 
 const STATUSES: { value: string; label: string }[] = [
@@ -263,7 +264,7 @@ export default function LeadsPage() {
           <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             className="input-field pr-9"
-            placeholder="ابحث بالاسم أو الهاتف..."
+            placeholder={isAdmin ? 'ابحث بالاسم أو الهاتف...' : 'ابحث بالاسم أو الخدمة...'}
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -316,9 +317,20 @@ export default function LeadsPage() {
                       <Link href={`/leads/${lead.id}`} className="font-semibold text-gray-900 hover:text-primary">
                         {lead.name}
                       </Link>
-                      <p className="mt-0.5 text-xs text-gray-400" dir="ltr">
-                        {lead.phone}
+                      <p
+                        className={`mt-0.5 flex items-center gap-1.5 text-xs ${
+                          lead.contactInfoLocked ? 'text-amber-700' : 'text-gray-400'
+                        }`}
+                        dir="ltr"
+                      >
+                        {lead.contactInfoLocked ? <LockKeyhole className="h-3 w-3 flex-shrink-0" /> : null}
+                        <span className={lead.contactInfoLocked ? 'select-none blur-[2px]' : ''}>
+                          {getLeadContactLabel(lead)}
+                        </span>
                       </p>
+                      {lead.contactInfoLocked ? (
+                        <p className="mt-1 text-[11px] text-amber-700">{LOCKED_LEAD_CONTACT_HINT}</p>
+                      ) : null}
                       {lead.service ? <p className="mt-1 text-xs text-gray-500">{lead.service}</p> : null}
                       {isAdmin && lead.assignedTo ? (
                         <p className="mt-1 text-xs text-gray-400">المسؤول: {lead.assignedTo.name}</p>
@@ -402,8 +414,23 @@ export default function LeadsPage() {
                           </p>
                         ) : null}
                       </td>
-                      <td className="table-cell" dir="ltr">
-                        {lead.phone}
+                      <td className="table-cell">
+                        <div
+                          className={`inline-flex items-center gap-1.5 ${
+                            lead.contactInfoLocked ? 'text-amber-700' : 'text-gray-900'
+                          }`}
+                        >
+                          {lead.contactInfoLocked ? <LockKeyhole className="h-3.5 w-3.5 flex-shrink-0" /> : null}
+                          <span
+                            dir="ltr"
+                            className={lead.contactInfoLocked ? 'select-none blur-[2px]' : ''}
+                          >
+                            {getLeadContactLabel(lead)}
+                          </span>
+                        </div>
+                        {lead.contactInfoLocked ? (
+                          <p className="mt-1 text-[11px] text-amber-700">{LOCKED_LEAD_CONTACT_HINT}</p>
+                        ) : null}
                       </td>
                       <td className="table-cell">{lead.service || '—'}</td>
                       <td className="table-cell">{lead.source || '—'}</td>

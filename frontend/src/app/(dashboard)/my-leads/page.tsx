@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { getLeadContactLabel } from '@/utils/leadContact';
 
 export default function MyLeadsPage() {
   const { user } = useAuth();
@@ -70,7 +71,7 @@ export default function MyLeadsPage() {
               {leads.map((lead) => (
                 <tr key={lead.id} className="table-row">
                   <td className="table-cell font-medium">{lead.name}</td>
-                  <td className="table-cell" dir="ltr">{lead.phone}</td>
+                  <td className="table-cell" dir="ltr">{getLeadContactLabel(lead)}</td>
                   <td className="table-cell">{lead.service || '—'}</td>
                   <td className="table-cell"><LeadStatusBadge status={lead.status} /></td>
                   <td className="table-cell text-sm text-gray-400">

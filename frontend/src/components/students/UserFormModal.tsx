@@ -235,6 +235,9 @@ export default function UserFormModal({ user, defaultRole, onClose, onSaved }: P
                     </span>
                   </p>
                   <p>
+                    مصدر الحد: <span className="font-semibold text-slate-900">{leadPolicy.usesDefaultLimit ? 'الحد العام من الإعدادات' : 'حد مخصص لهذا الطالب'}</span>
+                  </p>
+                  <p>
                     بعد الصفقة الناجحة: <span className="font-semibold text-slate-900">{leadPolicy.blockNewLeadsAfterWon ? 'مفعّل' : 'غير مفعّل'}</span>
                   </p>
                   {leadPolicy.reason && (

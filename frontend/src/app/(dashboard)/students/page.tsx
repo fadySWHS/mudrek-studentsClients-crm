@@ -14,6 +14,19 @@ import { useAuth } from '@/context/AuthContext';
 
 type Tab = 'STUDENT' | 'ADMIN';
 
+const getLeadPolicySummary = (user: Student) => {
+  if (user.role !== 'STUDENT' || !user.leadPolicy) return '—';
+
+  const limitLabel =
+    user.leadPolicy.activeLeadReservationLimit && user.leadPolicy.activeLeadReservationLimit > 0
+      ? String(user.leadPolicy.activeLeadReservationLimit)
+      : 'غير محدود';
+
+  return user.leadPolicy.usesDefaultLimit
+    ? `الحد العام: ${limitLabel}`
+    : `حد مخصص: ${limitLabel}`;
+};
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [tab, setTab] = useState<Tab>('STUDENT');
@@ -253,6 +266,9 @@ export default function UsersPage() {
                     </p>
                     <p className="text-xs text-gray-400 truncate" dir="ltr">{u.email}</p>
                     {u.phone && <p className="text-xs text-gray-400 truncate" dir="ltr">{u.phone}</p>}
+                    {u.role === 'STUDENT' ? (
+                      <p className="mt-1 text-[11px] text-slate-500">{getLeadPolicySummary(u)}</p>
+                    ) : null}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={cn('badge', u.role === 'ADMIN' ? 'bg-primary-light text-primary-dark' : 'bg-blue-50 text-blue-700')}>
@@ -295,6 +311,7 @@ export default function UsersPage() {
                   <th className="table-header">البريد الإلكتروني</th>
                   <th className="table-header">رقم WhatsApp</th>
                   <th className="table-header">الدور</th>
+                  {tab === 'STUDENT' ? <th className="table-header">حد الحجز</th> : null}
                   <th className="table-header">الحالة</th>
                   <th className="table-header">تاريخ الإنشاء</th>
                   <th className="table-header">الإجراءات</th>
@@ -324,6 +341,11 @@ export default function UsersPage() {
                         {u.role === 'ADMIN' ? 'مدير' : 'طالب'}
                       </span>
                     </td>
+                    {tab === 'STUDENT' ? (
+                      <td className="table-cell text-xs text-slate-500">
+                        {getLeadPolicySummary(u)}
+                      </td>
+                    ) : null}
                     <td className="table-cell">
                       <span className={cn('badge', u.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500')}>
                         {u.active ? 'نشط' : 'معطّل'}

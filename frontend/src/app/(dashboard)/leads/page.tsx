@@ -248,6 +248,11 @@ export default function LeadsPage() {
                     : `لديك ${claimPolicy.activeLeadCount} عميل نشط حاليًا ولا يوجد حد عام مفعل.`)}
               </p>
               <p className="mt-2 text-xs text-slate-500">
+                {claimPolicy.usesDefaultLimit
+                  ? 'هذا الحساب يستخدم الحد العام من الإعدادات.'
+                  : 'هذا الحساب لديه حد حجز مخصص من الإدارة، لذلك قد يختلف عن الحد العام.'}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
                 أدوات التدريب ما زالت متاحة لك من صفحة{' '}
                 <Link href="/coach" className="font-semibold text-primary hover:underline">
                   المدرب الذكي

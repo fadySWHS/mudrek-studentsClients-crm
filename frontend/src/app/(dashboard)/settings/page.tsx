@@ -329,6 +329,9 @@ export default function SettingsPage() {
           title="إعدادات النظام العامة"
           subtitle="كلمة المرور الافتراضية للطلاب وإعدادات النظام الأخرى"
         >
+          <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-6 text-amber-900">
+            الحد العام لحجز العملاء يطبّق فقط على الطلاب الذين لا يملكون حدًا مخصصًا داخل صفحة الطلاب.
+          </div>
           {systemSettings.map((s) => (
             <SettingRow
               key={s.key}

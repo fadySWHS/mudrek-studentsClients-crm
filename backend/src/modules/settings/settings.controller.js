@@ -16,6 +16,25 @@ const axios = require('axios');
 const prisma = new PrismaClient();
 
 const isOpenRouterKey = (value) => typeof value === 'string' && value.trim().startsWith('sk-or-v1');
+const normalizeTrimmedSettingValue = (value) => String(value ?? '').trim();
+
+const parseValidatedLeadLimit = (value) => {
+  const normalized = normalizeTrimmedSettingValue(value);
+  if (!/^\d+$/.test(normalized)) {
+    return { error: 'حد حجز العملاء الافتراضي يجب أن يكون رقماً صحيحاً أكبر من أو يساوي 0' };
+  }
+
+  return { value: normalized, parsed: Number.parseInt(normalized, 10) };
+};
+
+const parseValidatedBooleanSetting = (value) => {
+  const normalized = normalizeTrimmedSettingValue(value).toLowerCase();
+  if (!['true', 'false'].includes(normalized)) {
+    return { error: 'قيمة هذا الإعداد يجب أن تكون true أو false' };
+  }
+
+  return { value: normalized, parsed: normalized === 'true' };
+};
 
 const DEFAULT_SETTINGS = [
   {
@@ -293,14 +312,80 @@ const updateSetting = async (req, res) => {
   if (value === undefined) return error(res, 'القيمة مطلوبة', 400);
 
   const existing = await prisma.systemSetting.findUnique({ where: { key } });
+  
   if (!existing) return error(res, 'الإعداد غير موجود', 404);
+
+  let normalizedValue = normalizeTrimmedSettingValue(value);
+
+  if (key === DEFAULT_ACTIVE_LEAD_LIMIT_KEY) {
+    const parsedLimit = parseValidatedLeadLimit(value);
+    if (parsedLimit.error) return error(res, parsedLimit.error, 400);
+
+    normalizedValue = parsedLimit.value;
+    const previousLimit = parseValidatedLeadLimit(existing.value);
+
+    if (!previousLimit.error && previousLimit.parsed > 0 && previousLimit.parsed !== parsedLimit.parsed) {
+      const result = await prisma.$transaction(async (tx) => {
+        await tx.systemSetting.update({
+          where: { key },
+          data: { value: normalizedValue, updatedById: req.user.id },
+        });
+
+        return tx.user.updateMany({
+          where: {
+            role: 'STUDENT',
+            leadReservationLimitOverride: previousLimit.parsed,
+          },
+          data: {
+            leadReservationLimitOverride: null,
+          },
+        });
+      });
+
+      return success(
+        res,
+        { key, migratedStudentsToDefaultCount: result.count },
+        result.count > 0
+          ? `تم تحديث الإعداد وإرجاع ${result.count} طالب لاستخدام الحد العام الجديد`
+          : 'تم تحديث الإعداد بنجاح'
+      );
+    }
+  }
+
+  if (key === DEFAULT_BLOCK_AFTER_WON_KEY) {
+    const parsedBoolean = parseValidatedBooleanSetting(value);
+    if (parsedBoolean.error) return error(res, parsedBoolean.error, 400);
+    normalizedValue = parsedBoolean.value;
+  }
 
   await prisma.systemSetting.update({
     where: { key },
-    data: { value: value.trim(), updatedById: req.user.id },
+    data: { value: normalizedValue, updatedById: req.user.id },
   });
 
   return success(res, { key }, 'تم تحديث الإعداد بنجاح');
+};
+
+const resetStudentLeadLimitOverrides = async (_req, res) => {
+  const result = await prisma.user.updateMany({
+    where: {
+      role: 'STUDENT',
+      leadReservationLimitOverride: {
+        not: null,
+      },
+    },
+    data: {
+      leadReservationLimitOverride: null,
+    },
+  });
+
+  return success(
+    res,
+    { resetCount: result.count },
+    result.count > 0
+      ? `تمت إعادة ${result.count} حسابات طلاب إلى الحد العام الحالي`
+      : 'كل حسابات الطلاب تستخدم الحد العام بالفعل'
+  );
 };
 
 const testTwochat = async (_req, res) => {
@@ -386,4 +471,4 @@ const testWebhook = async (_req, res) => {
   }
 };
 
-module.exports = { getAll, updateSetting, testTwochat, testSheets, testWebhook };
+module.exports = { getAll, updateSetting, resetStudentLeadLimitOverrides, testTwochat, testSheets, testWebhook };

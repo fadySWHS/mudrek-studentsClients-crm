@@ -20,6 +20,11 @@ export const settingsService = {
     await api.put(`/settings/${key}`, { value });
   },
 
+  resetStudentLeadLimitOverrides: async (): Promise<{ resetCount: number }> => {
+    const res = await api.post('/settings/actions/reset-student-lead-limit-overrides');
+    return res.data.data;
+  },
+
   testTwochat: async (): Promise<string> => {
     const res = await api.post('/settings/test/twochat');
     return res.data.message;

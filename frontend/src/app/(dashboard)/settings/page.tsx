@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [testing, setTesting] = useState<'twochat' | 'sheets' | 'webhook' | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [resettingLeadLimitOverrides, setResettingLeadLimitOverrides] = useState(false);
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; disabled: number } | null>(null);
 
   const fetchSettings = async (opts?: { silent?: boolean }) => {
@@ -97,6 +98,24 @@ export default function SettingsPage() {
       toast.success(`المزامنة ناجحة: ${result.created} جديد · ${result.updated} محدّث · ${result.disabled} معطّل`);
     } catch (e: any) { toast.error(e.message); }
     finally { setSyncing(false); }
+  };
+
+  const handleResetStudentLeadLimitOverrides = async () => {
+    if (!confirm('سيتم إرجاع كل حدود حجز الطلاب المخصصة إلى الحد العام الحالي. هل تريد المتابعة؟')) return;
+
+    setResettingLeadLimitOverrides(true);
+    try {
+      const result = await settingsService.resetStudentLeadLimitOverrides();
+      toast.success(
+        result.resetCount > 0
+          ? `تم إرجاع ${result.resetCount} حسابات طلاب إلى الحد العام`
+          : 'كل حسابات الطلاب تستخدم الحد العام بالفعل'
+      );
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setResettingLeadLimitOverrides(false);
+    }
   };
 
   const twochatSettings = settings.filter((s) => s.key.startsWith('TWOCHAT') || s.key.startsWith('WHATSAPP'));
@@ -331,6 +350,20 @@ export default function SettingsPage() {
         >
           <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-xs leading-6 text-amber-900">
             الحد العام لحجز العملاء يطبّق فقط على الطلاب الذين لا يملكون حدًا مخصصًا داخل صفحة الطلاب.
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-700">
+            <p>
+              إذا بقي بعض الطلاب على حد قديم مثل 2 رغم أن الحد العام أصبح 4، أزل الحدود المخصصة القديمة من هنا
+              ليعودوا لاستخدام الإعداد العام الحالي.
+            </p>
+            <button
+              onClick={handleResetStudentLeadLimitOverrides}
+              disabled={resettingLeadLimitOverrides}
+              className="btn-secondary mt-3 flex items-center gap-2 text-sm"
+            >
+              <RefreshCw className={cn('h-4 w-4', resettingLeadLimitOverrides && 'animate-spin')} />
+              تطبيق الحد العام على كل الطلاب
+            </button>
           </div>
           {systemSettings.map((s) => (
             <SettingRow
